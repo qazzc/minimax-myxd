@@ -1,0 +1,42 @@
+# Model weights and benchmark inputs
+*.safetensors
+*.safetensors.index.json
+*.ckpt
+*.pt
+*.pth
+*.bin
+*.gguf
+model_weight/
+models/
+data/
+
+# Build products and runtime outputs
+build/
+build-*/
+.xmake/
+*.so
+*.dylib
+*.dll
+*.o
+*.a
+*.mp4
+outputs/
+
+# Keep only the corrected, visually inspected gfx936 result
+!validation/media/fl2va-gfx936-infinilm-upgate-orderfix-50step-124f.mp4
+
+# Python/editor/macOS artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+.DS_Store
+.vscode/
+.idea/
+.cache/
+
+# Local secrets and environment files
+.env
+.env.*
+!.env.example
+*.pem
+*.key

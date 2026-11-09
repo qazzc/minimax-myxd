@@ -1,0 +1,13 @@
+
+[task] reference_fl2va: using existing result: /code/outputs/fl2va-gfx936-reference-legacy-50step-124f-torch-chunked-1024.mp4
+
+[task] infinilm_fl2va: using existing result: /code/outputs/fl2va-gfx936-ninetoothed-50step-124f-mathsdpa.mp4
+
+[compare] FL2VA: decoding outputs
+
+[result] MiniMax-H3 video comparison
+
+  FL2VA
+    Size:         PASS (PyTorch 576x384, InfiniLM 576x384)
+    Length:       PASS (PyTorch 124 frames, InfiniLM 124 frames)
+    Average SSIM: 96.787%

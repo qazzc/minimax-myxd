@@ -1,0 +1,267 @@
+--- a/src/infiniop/ninetoothed/build.py
++++ b/src/infiniop/ninetoothed/build.py
+@@ -2,10 +2,13 @@
+ import functools
+ import inspect
+ import itertools
++import os
+ import pathlib
+ 
+ import ninetoothed
++import ninetoothed.aot as ninetoothed_aot
+ from ninetoothed.aot import _HEADER_PATH
++from ninetoothed.utils import calculate_default_configs
+ 
+ CURRENT_FILE_PATH = pathlib.Path(__file__)
+ 
+@@ -15,12 +18,16 @@
+ 
+ 
+ def build(premake, constexpr_param_grid, caller, op_name, output_dir):
++    _install_cpp_aot_compat()
++    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
++    BUILD_DIRECTORY_PATH.mkdir(parents=True, exist_ok=True)
+     headers = []
+     all_param_names = []
+     combinations = []
+     launches = []
+ 
+-    with concurrent.futures.ProcessPoolExecutor() as executor:
++    max_workers = max(1, int(os.environ.get("NINETOOTHED_BUILD_JOBS", "2")))
++    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
+         futures = []
+ 
+         for combination in tuple(
+@@ -61,7 +68,8 @@
+         f"{type} {param}" for param, type in zip(param_names, param_types)
+     )
+ 
+-    source_file_name = f"{op_name}.c"
++    has_hip_kernels = any(pathlib.Path(output_dir).glob(f"{op_name}_*.cpp"))
++    source_file_name = f"{op_name}.cpp" if has_hip_kernels else f"{op_name}.c"
+     header_file_name = f"{op_name}.h"
+ 
+     func_sig = f"NineToothedResult launch_{op_name}({param_decls})"
+@@ -129,3 +137,103 @@
+     value_combinations = itertools.product(*param_grid.values())
+ 
+     return tuple(dict(zip(keys, combination)) for combination in value_combinations)
++def _install_cpp_aot_compat():
++    """Support Triton ROCm releases that emit C++ AOT source files."""
++    if getattr(ninetoothed, "_infini_cpp_aot_compat", False):
++        return
++
++    compile_original = ninetoothed_aot._compile
++
++    def compile_with_cpp_alias(*args, **kwargs):
++        source_path = pathlib.Path(args[0] if args else kwargs["path"])
++        original_source = source_path.read_text()
++        compatible_source = original_source.replace(
++            "triton.bfloat16", "triton.language.bfloat16"
++        )
++        if compatible_source != original_source:
++            source_path.write_text(compatible_source)
++        try:
++            signature_hash, outputs = compile_original(*args, **kwargs)
++        finally:
++            if compatible_source != original_source:
++                source_path.write_text(original_source)
++        for name, content in tuple(outputs.items()):
++            if name.endswith(".cpp"):
++                outputs.setdefault(name[:-4] + ".c", content)
++        return signature_hash, outputs
++
++    def aot_with_cpp_output(func, caller="cuda", kernel_name=None,
++                            output_dir=None, num_warps=None, num_stages=None):
++        default_warps, default_stages = calculate_default_configs()
++        num_warps = default_warps if num_warps is None else num_warps
++        num_stages = default_stages if num_stages is None else num_stages
++        output_dir = pathlib.Path(output_dir)
++        outputs = ninetoothed_aot._aot(
++            func, caller, kernel_name, num_warps, num_stages
++        )
++        has_hip_kernel = any(name.endswith(".cpp") for name in outputs)
++        for name, content in outputs.items():
++            output_name = pathlib.Path(name).name
++            suffix = pathlib.Path(output_name).suffix
++            if suffix == ".cpp":
++                lines = content.splitlines()
++                includes = [
++                    line for line in lines if line.lstrip().startswith("#include ")
++                ]
++                body = [
++                    line for line in lines if not line.lstrip().startswith("#include ")
++                ]
++                content = (
++                    "#include <hip/hip_runtime.h>\n"
++                    + "\n".join(includes)
++                    + f"\n#include \"{kernel_name}.h\"\n"
++                    + "#define warpSize 64\n"
++                    + "\n".join(body).replace(
++                        "cuCtxGetId(NULL, &ctx_id);",
++                        "hipCtxGetId(nullptr, &ctx_id);",
++                    )
++                    + "\n"
++                )
++            elif suffix == ".c" and has_hip_kernel:
++                output_name = pathlib.Path(output_name).with_suffix(".cpp").name
++                content = (
++                    f"#include <hip/hip_runtime.h>\n#define warpSize 64\n#include \"{kernel_name}.h\"\n" + content
++                )
++            (output_dir / output_name).write_text(content)
++
++    def compact_aot_variants(launch_arg_names, tensors, find_tensor):
++        _, tensor_ndims, _ = ninetoothed_aot._per_tensor_dim_options(
++            launch_arg_names, tensors, find_tensor
++        )
++        common = ((), (), launch_arg_names, tensor_ndims)
++        int32_variant = ninetoothed_aot._variant_suffix(
++            *common,
++            size_type=ninetoothed.dtype.int32,
++            stride_type=ninetoothed.dtype.int32,
++        )
++        int64_variant = ninetoothed_aot._variant_suffix(
++            *common,
++            size_type=ninetoothed.dtype.int64,
++            stride_type=ninetoothed.dtype.int64,
++        )
++        return [
++            (
++                int32_variant,
++                (),
++                (),
++                ninetoothed.dtype.int32,
++                ninetoothed.dtype.int32,
++            ),
++            (
++                int64_variant,
++                (),
++                (),
++                ninetoothed.dtype.int64,
++                ninetoothed.dtype.int64,
++            ),
++        ]
++
++    ninetoothed_aot._compile = compile_with_cpp_alias
++    ninetoothed_aot._enumerate_variant_specs = compact_aot_variants
++    ninetoothed.make.__globals__["aot"] = aot_with_cpp_output
++    ninetoothed._infini_cpp_aot_compat = True
+--- a/src/infiniop/ops/swiglu/operator.cc
++++ b/src/infiniop/ops/swiglu/operator.cc
+@@ -27,6 +27,9 @@
+ #ifdef ENABLE_MOORE_API
+ #include "moore/swiglu_moore_musa.h"
+ #endif
++#if defined(ENABLE_HYGON_NINETOOTHED_SWIGLU)
++#include "ninetoothed/swiglu.h"
++#endif
+ 
+ __INFINI_C infiniStatus_t infiniopCreateSwiGLUDescriptor(
+     infiniopHandle_t handle,
+@@ -75,8 +78,12 @@
+         CREATE_CUDA(INFINI_DEVICE_QY, nvidia);
+ #endif
+ #ifdef ENABLE_HYGON_API
++#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
++        CREATE(INFINI_DEVICE_HYGON, ninetoothed);
++#else
+         CREATE_CUDA(INFINI_DEVICE_HYGON, nvidia);
+ #endif
++#endif
+ #ifdef ENABLE_KUNLUN_API
+         CREATE(INFINI_DEVICE_KUNLUN, kunlun);
+ #endif
+@@ -139,8 +146,12 @@
+         GET_CUDA(INFINI_DEVICE_QY, nvidia);
+ #endif
+ #ifdef ENABLE_HYGON_API
++#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
++        GET(INFINI_DEVICE_HYGON, ninetoothed);
++#else
+         GET_CUDA(INFINI_DEVICE_HYGON, nvidia);
+ #endif
++#endif
+ #ifdef ENABLE_KUNLUN_API
+         GET(INFINI_DEVICE_KUNLUN, kunlun);
+ #endif
+@@ -209,8 +220,12 @@
+         CALCULATE_CUDA(INFINI_DEVICE_QY, nvidia);
+ #endif
+ #ifdef ENABLE_HYGON_API
++#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
++        CALCULATE(INFINI_DEVICE_HYGON, ninetoothed);
++#else
+         CALCULATE_CUDA(INFINI_DEVICE_HYGON, nvidia);
+ #endif
++#endif
+ #ifdef ENABLE_KUNLUN_API
+         CALCULATE(INFINI_DEVICE_KUNLUN, kunlun);
+ #endif
+@@ -274,8 +289,12 @@
+         DELETE_CUDA(INFINI_DEVICE_QY, nvidia);
+ #endif
+ #ifdef ENABLE_HYGON_API
++#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
++        DELETE(INFINI_DEVICE_HYGON, ninetoothed);
++#else
+         DELETE_CUDA(INFINI_DEVICE_HYGON, nvidia);
+ #endif
++#endif
+ #ifdef ENABLE_KUNLUN_API
+         DELETE(INFINI_DEVICE_KUNLUN, kunlun);
+ #endif
+--- a/xmake.lua
++++ b/xmake.lua
+@@ -257,6 +257,12 @@
+ if has_config("ninetoothed") then
+     add_defines("ENABLE_NINETOOTHED")
+ end
++option("hygon-ninetoothed-swiglu")
++    set_default(false)
++    set_showmenu(true)
++    set_description("Use NineToothed AOT for Hygon SwiGLU")
++option_end()
++
+ 
+ -- Flash-Attn
+ option("flash-attn")
+--- a/xmake/hygon.lua
++++ b/xmake/hygon.lua
+@@ -97,6 +97,12 @@
+         return env_arch
+     end
+ 
++    local rocminfo = os.iorunv("rocminfo", {}):trim()
++    local detected = rocminfo:match("Name:%s+(gfx[0-9]+)")
++    if detected and detected ~= "" then
++        return detected
++    end
++
+     return "gfx936"
+ end
+ 
+@@ -155,8 +161,12 @@
+     remove_files("../src/infiniop/ops/gptq_qyblas_gemm/nvidia/*.cu")
+     remove_files("../src/infiniop/ops/histc/nvidia/*.cu")
+     remove_files("../src/infiniop/ops/quant/per_tensor_quant_int8/nvidia/*.cu")
+-    if has_config("ninetoothed") then
+-        add_files("../build/ninetoothed/*.c", "../build/ninetoothed/*.cpp", {cxxflags = {"-Wno-return-type"}})
++    if has_config("hygon-ninetoothed-swiglu") then
++        add_defines("ENABLE_HYGON_NINETOOTHED_SWIGLU")
++        add_files("../build/ninetoothed/*.cpp", {
++            cxxflags = {"-D__HIP_PLATFORM_AMD__", "-Wno-return-type", "-Wno-error=unused-result", "-Wno-error=unused-variable"}
++        })
++        add_links("amdhip64")
+     end
+ target_end()
+ 
+@@ -222,8 +232,7 @@
+ 
+         -- 添加海光DCU特定的编译标志
+         -- 检测实际GPU架构，如果未指定则默认使用gfx906
+-        local hygon_arch = os.getenv("HYGON_ARCH") or "gfx906"
+-        add_cuflags("-arch=" .. hygon_arch)
++        add_cuflags("-arch=" .. HYGON_ARCH)
+ 
+         -- 使用NCCL (NVIDIA Collective Communications Library)
+         add_links("nccl")

@@ -1,0 +1,27 @@
+diff --git a/xmake/hygon.lua b/xmake/hygon.lua
+index ba06ae97..bb8e00bc 100644
+--- a/xmake/hygon.lua
++++ b/xmake/hygon.lua
+@@ -97,6 +97,12 @@ local function resolve_hygon_arch()
+         return env_arch
+     end
+ 
++    local rocminfo = os.iorunv("rocminfo", {}):trim()
++    local detected = rocminfo:match("Name:%s+(gfx[0-9]+)")
++    if detected and detected ~= "" then
++        return detected
++    end
++
+     return "gfx936"
+ end
+ 
+@@ -222,8 +228,7 @@ target("infiniccl-hygon")
+ 
+         -- 添加海光DCU特定的编译标志
+         -- 检测实际GPU架构，如果未指定则默认使用gfx906
+-        local hygon_arch = os.getenv("HYGON_ARCH") or "gfx906"
+-        add_cuflags("-arch=" .. hygon_arch)
++        add_cuflags("-arch=" .. HYGON_ARCH)
+ 
+         -- 使用NCCL (NVIDIA Collective Communications Library)
+         add_links("nccl")

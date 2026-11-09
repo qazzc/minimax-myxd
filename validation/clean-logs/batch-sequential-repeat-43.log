@@ -1,0 +1,82 @@
+[2026-11-08 15:07:30.567] [info] [:] Intra-node TP communicator established: node_rank=0, local_ranks=4
+[model] Loading modular components from: /code/models/MiniMax-H3/diffusers
+[model] Loading fl2va weights from:       /code/models/MiniMax-H3/diffusers
+[model] Backend: InfiniLM
+[model] InfiniLM TP devices: [0, 1, 2, 3, 4, 5, 6, 7]
+[model] InfiniLM text TP devices: [0, 1, 2, 3]
+[model] InfiniLM H3 TP devices:   [4, 5, 6, 7]
+ load weights ......
+Found index file: /code/models/MiniMax-H3/diffusers/text_encoder/model.safetensors.index.json. Loading shards by index.
+Processing files:   0%|          | 0/14 [00:00<?, ?it/s]                                                        Processing files:   0%|          | 0/14 [00:00<?, ?it/s]Processing files:   7%|▋         | 1/14 [00:00<00:12,  1.05it/s]                                                                Processing files:   7%|▋         | 1/14 [00:00<00:12,  1.05it/s]Processing files:  14%|█▍        | 2/14 [00:01<00:11,  1.03it/s]                                                                Processing files:  14%|█▍        | 2/14 [00:01<00:11,  1.03it/s]Processing files:  21%|██▏       | 3/14 [00:02<00:06,  1.61it/s]                                                                Processing files:  21%|██▏       | 3/14 [00:02<00:06,  1.61it/s]Processing files:  29%|██▊       | 4/14 [00:02<00:05,  1.79it/s]                                                                Processing files:  29%|██▊       | 4/14 [00:02<00:05,  1.79it/s]Processing files:  36%|███▌      | 5/14 [00:03<00:06,  1.29it/s]                                                                Processing files:  36%|███▌      | 5/14 [00:03<00:06,  1.29it/s]Processing files:  43%|████▎     | 6/14 [00:04<00:06,  1.22it/s]                                                                Processing files:  43%|████▎     | 6/14 [00:04<00:06,  1.22it/s]Processing files:  50%|█████     | 7/14 [00:05<00:05,  1.17it/s]                                                                Processing files:  50%|█████     | 7/14 [00:05<00:05,  1.17it/s]Processing files:  57%|█████▋    | 8/14 [00:06<00:05,  1.12it/s]                                                                Processing files:  57%|█████▋    | 8/14 [00:06<00:05,  1.12it/s]Processing files:  64%|██████▍   | 9/14 [00:08<00:05,  1.12s/it]                                                                Processing files:  64%|██████▍   | 9/14 [00:08<00:05,  1.12s/it]Processing files:  71%|███████▏  | 10/14 [00:09<00:04,  1.05s/it]                                                                 Processing files:  71%|███████▏  | 10/14 [00:09<00:04,  1.05s/it]Processing files:  79%|███████▊  | 11/14 [00:10<00:03,  1.03s/it]                                                                 Processing files:  79%|███████▊  | 11/14 [00:10<00:03,  1.03s/it]Processing files:  86%|████████▌ | 12/14 [00:10<00:01,  1.01it/s]                                                                 Processing files:  86%|████████▌ | 12/14 [00:10<00:01,  1.01it/s]Processing files:  93%|█████████▎| 13/14 [00:11<00:00,  1.03it/s]                                                                 Processing files:  93%|█████████▎| 13/14 [00:11<00:00,  1.03it/s]Processing files: 100%|██████████| 14/14 [00:12<00:00,  1.36it/s]Processing files: 100%|██████████| 14/14 [00:12<00:00,  1.16it/s]
+[2026-11-08 15:07:46.940] [info] [:] Intra-node TP communicator established: node_rank=0, local_ranks=4
+Processing: model-00007-of-00014.safetensors
+Processing: model-00003-of-00014.safetensors
+Processing: model-00012-of-00014.safetensors
+Processing: model-00011-of-00014.safetensors
+Processing: model-00014-of-00014.safetensors
+Processing: model-00002-of-00014.safetensors
+Processing: model-00004-of-00014.safetensors
+Processing: model-00005-of-00014.safetensors
+Processing: model-00001-of-00014.safetensors
+Processing: model-00006-of-00014.safetensors
+Processing: model-00010-of-00014.safetensors
+Processing: model-00009-of-00014.safetensors
+Processing: model-00008-of-00014.safetensors
+Processing: model-00013-of-00014.safetensors
+ load weights over! 12285.950422286987 ms 
+
+ load weights ......
+Found index file: /code/models/MiniMax-H3/diffusers/transformer/model.safetensors.index.json. Loading shards by index.
+Processing files:   0%|          | 0/13 [00:00<?, ?it/s]                                                        Processing files:   0%|          | 0/13 [00:00<?, ?it/s]Processing files:   8%|▊         | 1/13 [00:01<00:14,  1.19s/it]                                                                Processing files:   8%|▊         | 1/13 [00:01<00:14,  1.19s/it]Processing files:  15%|█▌        | 2/13 [00:02<00:11,  1.09s/it]                                                                Processing files:  15%|█▌        | 2/13 [00:02<00:11,  1.09s/it]Processing files:  23%|██▎       | 3/13 [00:03<00:10,  1.08s/it]                                                                Processing files:  23%|██▎       | 3/13 [00:03<00:10,  1.08s/it]Processing files:  31%|███       | 4/13 [00:04<00:09,  1.07s/it]                                                                Processing files:  31%|███       | 4/13 [00:04<00:09,  1.07s/it]Processing files:  38%|███▊      | 5/13 [00:05<00:08,  1.05s/it]                                                                Processing files:  38%|███▊      | 5/13 [00:05<00:08,  1.05s/it]Processing files:  46%|████▌     | 6/13 [00:06<00:07,  1.02s/it]                                                                Processing files:  46%|████▌     | 6/13 [00:06<00:07,  1.02s/it]Processing files:  54%|█████▍    | 7/13 [00:07<00:06,  1.01s/it]                                                                Processing files:  54%|█████▍    | 7/13 [00:07<00:06,  1.01s/it]Processing files:  62%|██████▏   | 8/13 [00:08<00:05,  1.02s/it]                                                                Processing files:  62%|██████▏   | 8/13 [00:08<00:05,  1.02s/it]Processing files:  69%|██████▉   | 9/13 [00:09<00:03,  1.00it/s]                                                                Processing files:  69%|██████▉   | 9/13 [00:09<00:03,  1.00it/s]Processing files:  77%|███████▋  | 10/13 [00:10<00:02,  1.05it/s]                                                                 Processing files:  77%|███████▋  | 10/13 [00:10<00:02,  1.05it/s]Processing files:  85%|████████▍ | 11/13 [00:11<00:01,  1.04it/s]                                                                 Processing files:  85%|████████▍ | 11/13 [00:11<00:01,  1.04it/s]Processing files:  92%|█████████▏| 12/13 [00:12<00:00,  1.04it/s]                                                                 Processing files:  92%|█████████▏| 12/13 [00:12<00:00,  1.04it/s]Processing files: 100%|██████████| 13/13 [00:13<00:00,  1.01it/s]Processing files: 100%|██████████| 13/13 [00:13<00:00,  1.01s/it]
+The config attributes {'vae_ratio': 16, 'vae_ratio_t': 4} were passed to AutoencoderKLLegacy, but are not expected and will be ignored. Please verify your config.json configuration file.
+Processing: model-00001-of-00013.safetensors
+Processing: model-00008-of-00013.safetensors
+Processing: model-00010-of-00013.safetensors
+Processing: model-00006-of-00013.safetensors
+Processing: model-00002-of-00013.safetensors
+Processing: model-00004-of-00013.safetensors
+Processing: model-00005-of-00013.safetensors
+Processing: model-00003-of-00013.safetensors
+Processing: model-00007-of-00013.safetensors
+Processing: model-00013-of-00013.safetensors
+Processing: model-00012-of-00013.safetensors
+Processing: model-00009-of-00013.safetensors
+Processing: model-00011-of-00013.safetensors
+ load weights over! 13347.082614898682 ms 
+
+[model] Diffusers execution device: cuda:0
+[compat] Corrected legacy VAE tokens_chunk_size: 3 -> 5
+[generate] Running MiniMax-H3 FL2VA
+  text:            A dog slowly turns its head and falls asleep
+  first frame:     True
+  last frame:      False
+  frames:          124
+  steps:           50
+  backend:         InfiniLM
+  0%|          | 0/49 [00:00<?, ?it/s]  2%|▏         | 1/49 [00:04<03:58,  4.97s/it]  4%|▍         | 2/49 [00:08<03:00,  3.84s/it]  6%|▌         | 3/49 [00:11<02:40,  3.49s/it]  8%|▊         | 4/49 [00:14<02:29,  3.32s/it] 10%|█         | 5/49 [00:17<02:21,  3.22s/it] 12%|█▏        | 6/49 [00:20<02:17,  3.19s/it] 14%|█▍        | 7/49 [00:23<02:12,  3.14s/it] 16%|█▋        | 8/49 [00:26<02:07,  3.12s/it] 18%|█▊        | 9/49 [00:29<02:04,  3.10s/it] 20%|██        | 10/49 [00:32<02:00,  3.09s/it] 22%|██▏       | 11/49 [00:35<01:57,  3.09s/it] 24%|██▍       | 12/49 [00:38<01:53,  3.08s/it] 27%|██▋       | 13/49 [00:41<01:50,  3.07s/it] 29%|██▊       | 14/49 [00:44<01:47,  3.07s/it] 31%|███       | 15/49 [00:47<01:44,  3.07s/it] 33%|███▎      | 16/49 [00:50<01:41,  3.06s/it] 35%|███▍      | 17/49 [00:54<01:38,  3.08s/it] 37%|███▋      | 18/49 [00:57<01:35,  3.07s/it] 39%|███▉      | 19/49 [01:00<01:32,  3.07s/it] 41%|████      | 20/49 [01:03<01:29,  3.07s/it] 43%|████▎     | 21/49 [01:06<01:25,  3.07s/it] 45%|████▍     | 22/49 [01:09<01:22,  3.06s/it] 47%|████▋     | 23/49 [01:12<01:19,  3.08s/it] 49%|████▉     | 24/49 [01:15<01:16,  3.07s/it] 51%|█████     | 25/49 [01:18<01:13,  3.07s/it] 53%|█████▎    | 26/49 [01:21<01:10,  3.07s/it] 55%|█████▌    | 27/49 [01:24<01:07,  3.06s/it] 57%|█████▋    | 28/49 [01:27<01:04,  3.07s/it] 59%|█████▉    | 29/49 [01:30<01:01,  3.07s/it] 61%|██████    | 30/49 [01:33<00:58,  3.06s/it] 63%|██████▎   | 31/49 [01:36<00:55,  3.06s/it] 65%|██████▌   | 32/49 [01:40<00:52,  3.06s/it] 67%|██████▋   | 33/49 [01:43<00:48,  3.06s/it] 69%|██████▉   | 34/49 [01:46<00:46,  3.07s/it] 71%|███████▏  | 35/49 [01:49<00:42,  3.07s/it] 73%|███████▎  | 36/49 [01:52<00:39,  3.06s/it] 76%|███████▌  | 37/49 [01:55<00:36,  3.06s/it] 78%|███████▊  | 38/49 [01:58<00:33,  3.06s/it] 80%|███████▉  | 39/49 [02:01<00:30,  3.06s/it] 82%|████████▏ | 40/49 [02:04<00:27,  3.06s/it] 84%|████████▎ | 41/49 [02:07<00:24,  3.07s/it] 86%|████████▌ | 42/49 [02:10<00:21,  3.07s/it] 88%|████████▊ | 43/49 [02:13<00:18,  3.06s/it] 90%|████████▉ | 44/49 [02:16<00:15,  3.06s/it] 92%|█████████▏| 45/49 [02:19<00:12,  3.06s/it] 94%|█████████▍| 46/49 [02:22<00:09,  3.06s/it] 96%|█████████▌| 47/49 [02:25<00:06,  3.06s/it] 98%|█████████▊| 48/49 [02:29<00:03,  3.06s/it]100%|██████████| 49/49 [02:32<00:00,  3.06s/it]100%|██████████| 49/49 [02:32<00:00,  3.10s/it]
+/usr/local/lib/python3.11/site-packages/torch/nn/functional.py:3095: UserWarning: Mismatch dtype between input and weight: input dtype = float, weight dtype = c10::BFloat16, Cannot dispatch to fused implementation. (Triggered internally at /home/pytorch/aten/src/ATen/native/layer_norm.cpp:344.)
+  return torch.rms_norm(input, normalized_shape, weight, eps)
+/code/models/MiniMax-H3/diffusers/video_vae/flash.py:64: UserWarning: 1Torch was not compiled with memory efficient attention. (Triggered internally at /home/pytorch/aten/src/ATen/native/transformers/hip/sdp_utils.cpp:790.)
+  out = F.scaled_dot_product_attention(
+[compat] Temporal VAE decoded frames: 124
+[verify] FL2VA frames: 124/124 PASS
+Encoding video chunks:   0%|          | 0/1 [00:00<?, ?it/s]Encoding video chunks: 100%|██████████| 1/1 [00:00<00:00,  1.55it/s]Encoding video chunks: 100%|██████████| 1/1 [00:00<00:00,  1.55it/s]
+
+[timing] MiniMax-H3 profile
+  model.pipeline_create                      0.070 s
+  model.condition_encoder_create_and_load    16.564 s
+  model.transformer_create_and_load         16.299 s
+  model.remaining_components_create_and_load    37.438 s
+  input.files_and_references                 0.013 s
+  input.arguments                            0.000 s
+  compute.condition_encoder                  1.374 s
+  input.video_vae_encode                     0.496 s
+  input.audio_vae_encode                     0.000 s (0 calls)
+  compute.h3_transformer                   151.984 s (49 calls, 3.102 s/call)
+  output.video_vae_decode                   12.673 s
+  output.audio_vae_decode                    1.856 s
+  generation.pipeline_total                169.381 s
+  output.media_encode                        1.177 s
+  total.end_to_end                         240.944 s
+  pipeline.other_preprocess_scheduler        0.998 s
+[done] Saved to: /code/validation-clean-20261108-r7/batch-two-cases/sequential-repeat-43.mp4

@@ -1,0 +1,10 @@
+diff --git a/src/ninetoothed/targets.py b/src/ninetoothed/targets.py
+--- a/src/ninetoothed/targets.py
++++ b/src/ninetoothed/targets.py
+@@ -594,5 +594,5 @@
+             device_types=("cuda",),
+             backend_modes={
+-                Target.TRITON.value: frozenset(("jit",)),
++                Target.TRITON.value: frozenset(("jit", "aot")),
+                 Target.CUDA.value: frozenset(("jit",)),
+             },

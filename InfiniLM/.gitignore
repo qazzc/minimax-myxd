@@ -1,0 +1,32 @@
+# Xmake cache
+.xmake/
+build/
+python/infinilm/lib/*.so
+
+# MacOS Cache
+.DS_Store
+
+# Vscode
+.vscode/
+
+model_weight/
+
+# Python
+__pycache__/
+*.egg-info/
+
+# Log
+*.log
+
+# Cache
+.cache/
+
+#GGUF
+*.gguf
+
+# txt
+*.txt
+
+*.http
+
+*.nsys-rep
