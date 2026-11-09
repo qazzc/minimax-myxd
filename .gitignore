@@ -7,7 +7,7 @@
 *.bin
 *.gguf
 model_weight/
-models/
+/models/
 data/
 
 # Build products and runtime outputs
