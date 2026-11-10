@@ -20,10 +20,11 @@ build-*/
 *.o
 *.a
 *.mp4
+*.log
 outputs/
-
-# Keep only the corrected, visually inspected gfx936 result
-!validation/media/fl2va-gfx936-infinilm-upgate-orderfix-50step-124f.mp4
+validation/clean-media/
+validation/media/
+validation/*-logs/
 
 # Python/editor/macOS artifacts
 __pycache__/

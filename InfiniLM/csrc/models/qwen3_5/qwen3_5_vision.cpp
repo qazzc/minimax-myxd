@@ -3,6 +3,7 @@
 #include "../../utils.hpp"
 
 #include <infinicore/ops.hpp>
+#include <infinicore/context/context.hpp>
 #include <infinicore/ops/mha.hpp>
 #include <infinicore/ops/matmul.hpp>
 #include <infinicore/ops/softmax.hpp>
@@ -379,7 +380,11 @@ infinicore::Tensor Qwen35VisionModel::build_rotary_position_ids(
             }
         }
     }
-    return position_ids_cpu->to(image_grid_thw->device());
+    auto position_ids_device = position_ids_cpu->to(image_grid_thw->device());
+    // to(device) queues an asynchronous H2D copy. Keep the host allocation
+    // alive until the copy completes; other TP workers share the CPU pool.
+    infinicore::context::syncStream();
+    return position_ids_device;
 }
 
 infinicore::Tensor

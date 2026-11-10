@@ -46,10 +46,8 @@ infiniStatus_t calculate(
     float alpha,
     void *stream) 
 {
-    // 0. For muDNN development, refer to the official documentation and the following headers:
-    // - /usr/local/musa/include/mudnn_base.h
-    // - /usr/local/musa/include/mudnn_math.h
-    // - /usr/local/musa/include/mudnn.h
+    // 0. For muDNN development, refer to the official documentation and the
+    // headers under the configured MUSA_ROOT include directory.
 
     // 1. Create BatchMatMul operator
     auto matmul_operator = std::make_unique<::musa::dnn::BatchMatMul>();

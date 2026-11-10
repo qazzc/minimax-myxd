@@ -2,14 +2,17 @@ import ctypes
 import glob
 import importlib.util
 import os
+import shutil
 import sys
+import sysconfig
+from pathlib import Path
 from typing import Iterable, List
 
 
 def _candidate_prefixes(path: str) -> List[str]:
     """
     Return HPCC install prefixes to search for libs.
-    Prefer HPCC_PATH; if absent and explicitly opted-in, fall back to /opt/hpcc.
+    Prefer the explicitly configured HPCC_PATH when one is supplied.
     """
     prefixes: List[str] = []
     if path:
@@ -138,11 +141,23 @@ def preload_flash_attn() -> None:
             continue
         candidates.extend(glob.glob(os.path.join(p, "flash_attn_2_cuda*.so")))
 
-    # Common installation locations.
+    # Search interpreter package locations and the user-selected install prefix.
+    for key in ("platlib", "purelib"):
+        package_dir = sysconfig.get_path(key)
+        if package_dir:
+            candidates.extend(
+                glob.glob(os.path.join(package_dir, "flash_attn_2_cuda*.so"))
+            )
+    infini_root = os.getenv("INFINI_ROOT")
+    if infini_root:
+        candidates.extend(
+            glob.glob(os.path.join(infini_root, "lib", "flash_attn_2_cuda*.so"))
+        )
     candidates.extend(
-        glob.glob("/usr/local/lib/python*/dist-packages/flash_attn_2_cuda*.so")
+        glob.glob(
+            str(Path.home() / ".infini" / "lib" / "flash_attn_2_cuda*.so")
+        )
     )
-    candidates.extend(glob.glob("/root/.infini/lib/flash_attn_2_cuda*.so"))
 
     seen = set()
     for so_path in candidates:
@@ -186,14 +201,21 @@ def _should_preload_device(device_type: str) -> bool:
         if os.getenv(env_var):
             return True
     if device_type == "HYGON":
-        dtk_root = os.getenv("DTK_ROOT") or "/opt/dtk"
-        if os.path.isdir(dtk_root):
+        dtk_root = os.getenv("DTK_ROOT") or os.getenv("ROCM_PATH")
+        hip_path = os.getenv("HIP_PATH")
+        if not dtk_root and hip_path:
+            dtk_root = (
+                str(Path(hip_path).parent)
+                if Path(hip_path).name == "hip"
+                else hip_path
+            )
+        if (dtk_root and os.path.isdir(dtk_root)) or shutil.which("rocminfo"):
             return True
     if device_type == "CAMBRICON":
         return importlib.util.find_spec("torch_mlu") is not None
     if device_type == "ILUVATAR":
-        return importlib.util.find_spec("vllm_iluvatar") is not None or os.path.isdir(
-            "/usr/local/corex"
+        return importlib.util.find_spec("vllm_iluvatar") is not None or bool(
+            os.getenv("ILUVATAR_ROOT")
         )
     return False
 

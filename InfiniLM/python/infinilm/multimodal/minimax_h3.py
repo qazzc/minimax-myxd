@@ -363,7 +363,10 @@ class MiniMaxH3ConditionEncoder(Qwen3VLForConditionalGeneration):
             )
 
         def to_native(tensor):
-            return infinicore.from_torch(tensor.contiguous())
+            # The native engine consumes this pointer on an independent stream.
+            tensor = tensor.contiguous()
+            torch.cuda.synchronize(tensor.device)
+            return infinicore.from_torch(tensor)
 
         return {
             "input_ids": to_native(input_ids.to(self.torch_device)),
@@ -461,8 +464,11 @@ class MiniMaxH3TransformerRunner:
             dtype=infinicore.utils.to_torch_dtype(tensor.dtype),
             device=device,
         )
+        # Wait for producer work on the tensor's actual device, then finish
+        # the native copy on the destination before PyTorch consumes it.
+        torch.cuda.synchronize(torch.device("cuda", tensor.device.index))
         infinicore.from_torch(output).copy_(tensor)
-        infinicore.sync_device()
+        torch.cuda.synchronize(device)
         return output
 
     def __call__(
@@ -493,9 +499,13 @@ class MiniMaxH3TransformerRunner:
             dtype=torch.int64,
             device=self.torch_device,
         )
+        # from_torch is a zero-copy pointer wrapper. Wait for the PyTorch
+        # producer stream (including .to/rotary-cache creation) before worker
+        # streams read these buffers on any tensor-parallel rank.
         native_inputs = {
             name: self._to_infinicore(tensor) for name, tensor in torch_inputs.items()
         }
+        torch.cuda.synchronize(self.torch_device)
         output = self.engine.forward_raw(None, **native_inputs)
         video = output["logits"]
         audio = output["hidden_states"]

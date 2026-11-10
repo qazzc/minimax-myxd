@@ -619,7 +619,11 @@ target("infiniop")
             end
         end
     elseif has_config("nv-gpu") then
-        add_includedirs(path.join("/usr/local/cuda", "include"))
+        local nvcc = os.iorunv("sh", {"-lc", "command -v nvcc"}):trim()
+        if nvcc == "" then
+            raise("Set CUDA_HOME or CUDA_PATH, configure --cuda, or put nvcc on PATH")
+        end
+        add_includedirs(path.join(path.directory(path.directory(nvcc)), "include"))
     end
 
     if has_config("cpu") then
@@ -736,7 +740,10 @@ target("infinicore_cpp_api")
 
     add_includedirs("include")
     if has_config("metax-gpu") and has_config("use-mc") and has_config("aten") then
-        local maca_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT") or "/opt/maca"
+        local maca_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT")
+        if not maca_root or maca_root == "" then
+            raise("Set MACA_PATH, MACA_HOME, or MACA_ROOT for MetaX builds")
+        end
         add_includedirs(maca_root .. "/include")
         add_includedirs(maca_root .. "/tools/cu-bridge/include")
         for _, include_dir in ipairs(os.dirs(maca_root .. "/include/*")) do
@@ -748,11 +755,21 @@ target("infinicore_cpp_api")
     end
     add_includedirs(INFINI_ROOT.."/include", { public = true })
     if has_config("nv-gpu") or has_config("iluvatar-gpu") or has_config("ali-ppu") then
-        local cuda_root = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or get_config("cuda") or "/usr/local/cuda"
+        local cuda_root = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or get_config("cuda")
+        if not cuda_root or cuda_root == "" then
+            local nvcc = os.iorunv("sh", {"-lc", "command -v nvcc"}):trim()
+            if nvcc ~= "" then cuda_root = path.directory(path.directory(nvcc)) end
+        end
+        if not cuda_root or cuda_root == "" then
+            raise("Set CUDA_HOME, CUDA_PATH, or the xmake cuda option for this backend")
+        end
         add_includedirs(cuda_root .. "/include")
     end
     if has_config("moore-gpu") then
-        local musa_root = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH") or "/usr/local/musa"
+        local musa_root = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH")
+        if not musa_root or musa_root == "" then
+            raise("Set MUSA_ROOT, MUSA_HOME, or MUSA_PATH for Moore Threads builds")
+        end
         add_includedirs(path.join(musa_root, "include"))
     end
     if has_config("ascend-npu") then
@@ -870,13 +887,13 @@ target("infinicore_cpp_api")
         end
 
         -- MetaX + flash-attn: `flash_attn_2_cuda` may use a different `mha_fwd_kvcache` ABI
-        -- depending on the underlying stack version. When building with MACA (`--use-mc=y`),
-        -- the version file is typically `/opt/maca/Version.txt` (HPCC uses `/opt/hpcc/Version.txt`).
+        -- depending on the underlying stack version.
         if has_config("metax-gpu") and get_config("flash-attn") and get_config("flash-attn") ~= "" then
-            local version_txt = "/opt/hpcc/Version.txt"
-            if not os.isfile(version_txt) and has_config("use-mc") then
-                version_txt = "/opt/maca/Version.txt"
+            local toolkit_root = os.getenv("HPCC_PATH")
+            if has_config("use-mc") then
+                toolkit_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT")
             end
+            local version_txt = toolkit_root and path.join(toolkit_root, "Version.txt") or ""
             if os.isfile(version_txt) then
                 local content = os.iorunv("cat", {version_txt}) or ""
                 content = content:trim()
@@ -923,7 +940,10 @@ target("infinicore_cpp_api")
                 -- Detect torch_musa install path
                 local musa_outdata = os.iorunv(PYTHON, {"-c", "import torch_musa, os; print(os.path.dirname(torch_musa.__file__))"}):trim()
                 local TORCH_MUSA_DIR = musa_outdata
-                local MUSA_ROOT = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH") or "/usr/local/musa"
+                local MUSA_ROOT = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH")
+                if not MUSA_ROOT or MUSA_ROOT == "" then
+                    raise("Set MUSA_ROOT, MUSA_HOME, or MUSA_PATH for Moore Threads builds")
+                end
 
                 target:add(
                     "includedirs",

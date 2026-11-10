@@ -1,3 +1,3 @@
 # case_id<TAB>prompt<TAB>first_frame<TAB>seed
-public-sample-42	A dog falls asleep	/code/data/Golde33443.jpg	42
-sequential-repeat-43	A dog slowly turns its head and falls asleep	/code/data/Golde33443.jpg	43
+public-sample-42	A dog falls asleep	Golde33443.jpg	42
+sequential-repeat-43	A dog slowly turns its head and falls asleep	Golde33443.jpg	43

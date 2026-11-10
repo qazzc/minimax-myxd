@@ -2,17 +2,15 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-source /opt/dtk/env.sh
 source_env="${SETUP_ENV:-$ROOT/scripts/setup_env.sh}"
 if [[ -f "$source_env" ]]; then source "$source_env"; fi
 
-export HYGON_ARCH="${HYGON_ARCH:-$(rocminfo 2>/dev/null | awk '/Name:[[:space:]]+gfx[0-9]+/{print $2; exit}' || true)}"
 export HYGON_ARCH="${HYGON_ARCH:-gfx936}"
 export INFINI_ROOT="${INFINI_ROOT:-$HOME/.infini/$HYGON_ARCH}"
-export LD_LIBRARY_PATH="$INFINI_ROOT/lib:/opt/dtk/lib:/opt/dtk/cuda/cuda/lib64:/usr/local/lib/python3.11/site-packages/torch/lib:/opt/hyhal/lib:/opt/dtk/.hyhal/rocm_smi/lib:/opt/dtk/.hyhal/rocm_smi:${LD_LIBRARY_PATH:-}"
 
 MODEL_PATH="${MODEL_PATH:?Set MODEL_PATH to the model diffusers directory}"
 CASES_FILE="${CASES_FILE:?Set CASES_FILE to a tab-separated case manifest}"
+DATA_ROOT="${DATA_ROOT:-$ROOT/data}"
 OUTPUT_DIR="${OUTPUT_DIR:-$ROOT/outputs/batch-$(date +%Y%m%d-%H%M%S)}"
 PYTHON_BIN="${PYTHON_BIN:-python}"
 STEPS="${STEPS:-50}"
@@ -38,8 +36,12 @@ while IFS=$'\t' read -r case_id prompt first_frame seed extra || [[ -n "${case_i
     failed=1
     continue
   fi
-  if [[ ! -f "$first_frame" ]]; then
-    echo "Missing first frame for case '$case_id': $first_frame" >&2
+  case "$first_frame" in
+    /*) resolved_first_frame="$first_frame" ;;
+    *) resolved_first_frame="$DATA_ROOT/$first_frame" ;;
+  esac
+  if [[ ! -f "$resolved_first_frame" ]]; then
+    echo "Missing first frame for case '$case_id': $resolved_first_frame" >&2
     printf '%s\t%s\t%s\t%s\n' "$case_id" 2 "$OUTPUT_DIR/$case_id.mp4" "$OUTPUT_DIR/$case_id.log" >> "$SUMMARY"
     failed=1
     continue
@@ -58,7 +60,7 @@ while IFS=$'\t' read -r case_id prompt first_frame seed extra || [[ -n "${case_i
   set +e
   "$PYTHON_BIN" "$ROOT/InfiniLM/examples/minimax_h3.py" fl2va \
     --model-path="$MODEL_PATH" --text="$prompt" \
-    --first-frame="$first_frame" --gpus=0,1,2,3,4,5,6,7 \
+    --first-frame="$resolved_first_frame" --gpus=0,1,2,3,4,5,6,7 \
     --num-frames="$NUM_FRAMES" --steps="$STEPS" --seed="$seed" \
     --height="$HEIGHT" --width="$WIDTH" --output="$output" \
     2>&1 | tee "$log"

@@ -1,4 +1,26 @@
-local dtk_root = os.getenv("DTK_ROOT") or "/opt/dtk"
+local function resolve_dtk_root()
+    local configured = os.getenv("DTK_ROOT") or os.getenv("ROCM_PATH")
+    if configured and configured ~= "" then
+        return configured
+    end
+    local hip_path = os.getenv("HIP_PATH")
+    if hip_path and hip_path ~= "" then
+        if path.filename(hip_path) == "hip" then
+            return path.directory(hip_path)
+        end
+        return hip_path
+    end
+    local rocminfo = os.iorunv("sh", {"-lc", "command -v rocminfo"}):trim()
+    if rocminfo ~= "" then
+        return path.directory(path.directory(rocminfo))
+    end
+    return ""
+end
+
+local dtk_root = resolve_dtk_root()
+if dtk_root == "" then
+    raise("Set DTK_ROOT, ROCM_PATH, or HIP_PATH to the installed DTK root")
+end
 
 local function hygon_cuda_roots()
     local configured = get_config("cuda") or os.getenv("HYGON_CUDA_HOME")
@@ -250,23 +272,24 @@ local function hygon_flash_attn_cuda_so_path()
         if os.isfile(env_path) then
             return env_path
         end
-        print(string.format("warning: hygon+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s, fallback to container/default path", env_path))
+        print(string.format("warning: hygon+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s", env_path))
     end
 
-    local container_path = os.getenv("FLASH_ATTN_HYGON_CUDA_SO_CONTAINER")
-    if not container_path or container_path == "" then
-        container_path = "/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so"
+    if FLASH_ATTN_ROOT and FLASH_ATTN_ROOT ~= "" then
+        local candidates = os.files(path.join(FLASH_ATTN_ROOT, "flash_attn_2_cuda*.so"))
+        if #candidates > 0 then
+            return candidates[1]
+        end
     end
 
-    if not os.isfile(container_path) then
-        print(
-            string.format(
-                "warning: hygon+flash-attn: expected %s; install flash-attn in the active Python env, or export FLASH_ATTN_2_CUDA_SO.",
-                container_path
-            )
-        )
+    local detected = os.iorunv("python", {
+        "-c",
+        "import importlib.util; s=importlib.util.find_spec('flash_attn_2_cuda'); print(s.origin if s and s.origin else '')",
+    }):trim()
+    if detected ~= "" and os.isfile(detected) then
+        return detected
     end
-    return container_path
+    raise("hygon+flash-attn: extension not found; activate the Python environment or set FLASH_ATTN_2_CUDA_SO")
 end
 
 target("flash-attn-hygon")

@@ -124,8 +124,6 @@ Symbols &symbols() {
         const char *env_path = std::getenv("INFINICORE_ILUVATAR_VENDOR_SO");
         const char *paths[] = {
             env_path,
-            "/usr/local/lib/python3.12/site-packages/vllm_iluvatar/_C.cpython-312-x86_64-linux-gnu.so",
-            "/usr/local/lib/python3.10/site-packages/vllm_iluvatar/_C.cpython-310-x86_64-linux-gnu.so",
         };
 
         for (const char *path : paths) {
@@ -237,7 +235,6 @@ Symbols &symbols() {
         const char *ix_env_path = std::getenv("INFINICORE_IXTRITURBO_OPS_SO");
         const char *ix_paths[] = {
             ix_env_path,
-            "/usr/local/corex-4.5.0.20260619/lib64/python3/dist-packages/ixtriturbo/_C/ops.cpython-312-x86_64-linux-gnu.so",
         };
         for (const char *path : ix_paths) {
             if (path == nullptr || path[0] == '\0') {

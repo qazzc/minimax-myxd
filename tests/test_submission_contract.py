@@ -68,6 +68,40 @@ def test_native_forward_does_not_repeat_a_full_transformer_pass():
     assert "_first_forward_warmup_complete" not in source
 
 
+def test_h3_conditioner_waits_for_visual_handoff_before_embedding_lifetime_ends():
+    source = (
+        ROOT
+        / "InfiniLM"
+        / "csrc"
+        / "models"
+        / "qwen3_vl"
+        / "qwen3_vl_for_conditional_generation.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert "vision_output.pooler_output" in source
+    assert "infinicore::context::syncStream();" in source
+    assert source.index("infinicore::context::syncStream();") > source.index(
+        "visual placeholder count does not match visual output"
+    )
+
+
+def test_hygon_vision_rope_position_ids_wait_for_async_host_copy():
+    source = (
+        ROOT
+        / "InfiniLM"
+        / "csrc"
+        / "models"
+        / "qwen3_5"
+        / "qwen3_5_vision.cpp"
+    ).read_text(encoding="utf-8")
+
+    assert "position_ids_cpu->to(image_grid_thw->device())" in source
+    assert "infinicore::context::syncStream();" in source
+    assert source.index("infinicore::context::syncStream();") < source.index(
+        "return position_ids_device;"
+    )
+
+
 def test_fl2va_rejects_pipeline_frame_count_mismatch():
     source = (ROOT / "InfiniLM" / "examples" / "minimax_h3.py").read_text(
         encoding="utf-8"
@@ -84,6 +118,66 @@ def test_gfx936_build_uses_swiglu_scoped_ninetoothed_option():
 
     assert "--hygon-ninetoothed-swiglu=y" in source
     assert "--ninetoothed=y" not in source
+
+
+def test_infinilm_build_configures_isolated_dir_and_existing_target():
+    source = (ROOT / "scripts" / "build_infinilm.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert 'source_env="${SETUP_ENV:-$ROOT/scripts/setup_env.sh}"' in source
+    assert 'source "$source_env"' in source
+    assert 'xmake f -y -cv -m release --builddir="$XMAKE_BUILDDIR"' in source
+    assert 'xmake build -j "$XMAKE_BUILD_JOBS" _infinilm' in source
+    assert "infinicore_infer" not in source
+
+
+def test_batch_manifest_uses_relative_frame_names_and_configurable_data_root():
+    manifest = (ROOT / "validation" / "gfx936-two-case-smoke.tsv").read_text(
+        encoding="utf-8"
+    )
+    runner = (ROOT / "scripts" / "run_fl2va_batch.sh").read_text(
+        encoding="utf-8"
+    )
+
+    assert ("/" + "code/") not in manifest
+    assert 'DATA_ROOT="${DATA_ROOT:-$ROOT/data}"' in runner
+    assert '*) resolved_first_frame="$DATA_ROOT/$first_frame" ;;' in runner
+
+
+def test_hygon_environment_paths_are_discovered_or_configured():
+    source = (ROOT / "scripts" / "setup_env.sh").read_text(encoding="utf-8")
+
+    assert 'source "$DTK_ROOT/env.sh"' in source
+    assert '"$DTK_ROOT/.hyhal/rocm_smi"' in source
+    for path_fragment in ("opt/dtk", "usr/local/lib/python3.11", "dev/null"):
+        assert ("/" + path_fragment) not in source
+
+
+def test_flash_attention_extensions_use_environment_paths_not_python_install_paths():
+    hygon_source = (
+        ROOT
+        / "InfiniCore"
+        / "src"
+        / "infinicore"
+        / "adaptor"
+        / "flash_attn"
+        / "hygon"
+        / "flash_attn_hygon.cc"
+    ).read_text(encoding="utf-8")
+    iluvatar_source = (
+        ROOT
+        / "InfiniCore"
+        / "src"
+        / "infinicore"
+        / "adaptor"
+        / "iluvatar_vendor_adaptor.cc"
+    ).read_text(encoding="utf-8")
+
+    assert 'std::getenv("FLASH_ATTN_2_CUDA_SO")' in hygon_source
+    assert 'std::getenv("INFINICORE_ILUVATAR_VENDOR_SO")' in iluvatar_source
+    assert 'std::getenv("INFINICORE_IXTRITURBO_OPS_SO")' in iluvatar_source
+    assert ("/" + "usr/local/") not in hygon_source + iluvatar_source
 
 
 def test_chunked_attention_helper_is_legacy_only():

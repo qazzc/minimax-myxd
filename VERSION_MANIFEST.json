@@ -1,13 +1,20 @@
 {
   "package": "minimax-h3-submission",
   "created": "2026-10-31",
-  "updated": "2026-11-09",
-  "source_branches": {"InfiniCore": "minimax-h3", "InfiniLM": "minimax_h3"},
+  "updated": "2026-11-10",
+  "source_branches": {
+    "InfiniCore": "minimax-h3",
+    "InfiniLM": "minimax_h3"
+  },
   "source_revisions": {
     "InfiniCore": "f32e2fbb2a9b2ca912b5711f4f3836c403196a74",
     "InfiniLM": "65deb91f840ebaef752d028fad2f3217ce0950f4"
   },
-  "environment": {"python": "3.11.9", "pytorch": "2.9.0", "hip": "6.3.26093"},
+  "environment": {
+    "python": "3.11.9",
+    "pytorch": "2.9.0",
+    "hip": "6.3.26093"
+  },
   "ninetoothed": {
     "version": "0.26.0",
     "wheel": "ninetoothed-0.26.0-py3-none-any.whl",
@@ -19,12 +26,49 @@
     "date": "2026-11-09",
     "architecture": "gfx936",
     "cards": 8,
-    "fl2va": {"steps": 50, "frames": 124, "resolution": "576x384", "fps": 24, "historical_average_ssim_percent": 96.787, "quality_status": "native_inference_succeeded_visual_smoke_passed_reference_similarity_pending", "historical_ssim_validity": "invalid_as_quality_evidence_both_outputs_were_mosaics", "fixed_native_50step_visual_verification": "passed_gfx936_2026-11-09_five_frames_inspected"},
+    "fl2va": {
+      "steps": 50,
+      "frames": 124,
+      "resolution": "576x384",
+      "fps": 24,
+      "historical_average_ssim_percent": 96.787,
+      "quality_status": "candidate_seed_and_stream_fixes_passed_three_full_runs_official_gate_pending_fresh_inference_from_2026_11_10_isolated_build_pending_due_to_shared_gpu_memory",
+      "historical_ssim_validity": "invalid_as_quality_evidence_both_outputs_were_mosaics",
+      "fixed_native_50step_visual_verification": "three_candidate_runs_readable_124_frames_ssim_87_448_89_580_89_746_against_fixed_seed_pytorch"
+    },
     "ninetoothed_swiglu": "official InfiniCore test passed for F16/BF16/F32, H3-related shapes, strides, and in-place modes",
-    "isolated_source_rebuild": "H3-specific up/gate ordering correction rebuilt and full gfx936 8-card FL2VA run passed on 2026-11-09; 50 steps configured, 124 frames decoded, output visually inspected with no mosaic corruption; fresh PyTorch reference similarity comparison remains pending",
-    "batch_smoke": {"cases": 2, "all_exit_codes_zero": true, "first_case_ssim_percent": 96.741, "raw_logs_and_media_archived": true}
+    "isolated_source_rebuild": "InfiniCore and InfiniLM rebuilt successfully from cloned working tree into a fresh gfx936 prefix on 2026-11-10; official NineToothed SwiGLU test passed, InfiniLM imported and linked exclusively to that prefix; three prior candidate videos passed 124-frame media verification; fresh 50-step inference from this isolated prefix was deferred because external shared jobs occupied about 53 GiB per card",
+    "batch_smoke": {
+      "cases": 2,
+      "all_exit_codes_zero": true,
+      "first_case_ssim_percent": 96.741,
+      "raw_logs_and_media_archived": true
+    },
+    "reproducibility_diagnosis": {
+      "base_commit": "d342f1bbb4ee8022c0ee5830aa085156ecf43710",
+      "candidate_status": "VAE posterior seed plus Qwen visual handoff synchronization; three full 50-step gfx936 runs completed",
+      "conditioner_test": "image-conditioned native Qwen3-VL repeated outputs were elementwise equal in a three-run short test after handoff synchronization",
+      "repeat_decoded_rgb_mae": [3.57099, 4.49496, 4.94855],
+      "legacy_reference_ssim_percent": [87.448, 89.580, 89.746],
+      "official_competition_reference_check": "pending"
+    }
   },
-  "supported_hygon_arches": ["gfx906", "gfx936", "gfx938"],
-  "ninetoothed_hygon_aot_arches": ["gfx936"],
-  "excluded": ["*.so", "build/", "build-*", ".xmake/", ".cache/", "model weights", "large mp4", "old absolute paths"]
+  "supported_hygon_arches": [
+    "gfx906",
+    "gfx936",
+    "gfx938"
+  ],
+  "ninetoothed_hygon_aot_arches": [
+    "gfx936"
+  ],
+  "excluded": [
+    "*.so",
+    "build/",
+    "build-*",
+    ".xmake/",
+    ".cache/",
+    "model weights",
+    "large mp4",
+    "old absolute paths"
+  ]
 }

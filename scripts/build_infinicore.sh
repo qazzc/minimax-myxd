@@ -6,11 +6,8 @@ source_env="${SETUP_ENV:-$ROOT/scripts/setup_env.sh}"
 if [[ -f "$source_env" ]]; then source "$source_env"; fi
 
 export XMAKE_ROOT=y
-export HYGON_ARCH="${HYGON_ARCH:-$(rocminfo 2>/dev/null | awk '/Name:[[:space:]]+gfx[0-9]+/{print $2; exit}' || true)}"
 export HYGON_ARCH="${HYGON_ARCH:-gfx936}"
 export INFINI_ROOT="${INFINI_ROOT:-$HOME/.infini/$HYGON_ARCH}"
-export PATH="${HOME}/.local/bin:/opt/dtk/cuda/cuda/bin:${PATH}"
-export LD_LIBRARY_PATH="$INFINI_ROOT/lib:/opt/dtk/lib:/opt/dtk/cuda/cuda/lib64:/usr/local/lib/python3.11/site-packages/torch/lib:/opt/hyhal/lib:/opt/dtk/.hyhal/rocm_smi/lib:/opt/dtk/.hyhal/rocm_smi:${LD_LIBRARY_PATH:-}"
 export XMAKE_BUILD_JOBS="${XMAKE_BUILD_JOBS:-16}"
 export NINETOOTHED_BUILD_JOBS="${NINETOOTHED_BUILD_JOBS:-2}"
 export XMAKE_BUILDDIR="${XMAKE_BUILDDIR:-build-$HYGON_ARCH}"
@@ -26,7 +23,7 @@ if [[ "$HYGON_ARCH" == gfx936 ]]; then
   python "$ROOT/scripts/build_hygon_swiglu.py"
   XMAKE_FEATURE_ARGS+=(--hygon-ninetoothed-swiglu=y)
 fi
-xmake f -y -cv --hygon-dcu=y --hygon-arch="$HYGON_ARCH" --cuda=/opt/dtk/cuda/cuda --ccl=y --aten=y -m release --builddir="$XMAKE_BUILDDIR" "${XMAKE_FEATURE_ARGS[@]}"
+xmake f -y -cv --hygon-dcu=y --hygon-arch="$HYGON_ARCH" --cuda="$DTK_CUDA_ROOT" --ccl=y --aten=y -m release --builddir="$XMAKE_BUILDDIR" "${XMAKE_FEATURE_ARGS[@]}"
 xmake build -j "$XMAKE_BUILD_JOBS"
 xmake install
 xmake build -j "$XMAKE_BUILD_JOBS" _infinicore

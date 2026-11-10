@@ -1,9 +1,9 @@
 # Clean Build and Batch Summary
 
-Date: 2026-11-08  
-Architecture: gfx936, 8 x Hygon BW1000  
-Submission source: extracted into `/code/validation-clean-20261108-r7/minimax-h3-submission`  
-Install prefix: `/code/validation-clean-20261108-r7/install/gfx936`
+Date: 2026-11-08
+Architecture: gfx936, 8 x Hygon BW1000
+Submission source: clean extracted checkout
+Install prefix: isolated gfx936 prefix
 
 ## Build and Operator Test
 
@@ -23,6 +23,6 @@ The submission batch runner executed `validation/gfx936-two-case-smoke.tsv` sequ
 
 Official comparison script for the first case versus the PyTorch reference reported size PASS, length PASS, and Average SSIM `96.741%`.
 
-## Archived Evidence
+## Evidence
 
-Raw build, operator-test, FL2VA, per-case, batch-summary, and comparison logs are included under `clean-logs/`. The four decoded MP4s are included under `clean-media/`. Their SHA-256 values were compared with the originals on the container and match.
+Raw logs and generated videos are intentionally not versioned. The build, operator, batch, and comparison summaries above preserve the validation result without machine-specific file paths or large generated artifacts.

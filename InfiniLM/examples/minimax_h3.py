@@ -150,18 +150,38 @@ def install_component_profilers(
     profiler.wrap(text_encoder.model, "forward", "compute.condition_encoder")
     profiler.wrap(transformer, "forward", "compute.h3_transformer")
     if hasattr(vae, "encode"):
-        original_vae_encode_base = getattr(vae.model, "encode_base", None)
+        from video_vae.vae_module import DiagonalGaussianDistribution
+
         class _CompatPosterior:
-            def __init__(self, tensor): self.tensor = tensor[:, :24] if tensor.ndim >= 2 and tensor.shape[1] == 48 else tensor
-            def sample(self, generator=None): return self.tensor
-            def mode(self): return self.tensor
-        def _compat_vae_encode(*args, **kwargs):
-            kwargs.pop("return_dict", None)
-            if args: args = (args[0].to(dtype=next(vae.parameters()).dtype), *args[1:])
-            if original_vae_encode_base is not None:
-                return (_CompatPosterior(original_vae_encode_base(args[0], True)),)
-            result = vae.model.encode(*args, **kwargs)
-            return (_CompatPosterior(result),)
+            def __init__(self, moments, trim_image):
+                self.posterior = DiagonalGaussianDistribution(moments)
+                self.trim_image = trim_image
+
+            def _trim(self, latents):
+                if self.trim_image:
+                    return vae.model.trim_code(latents, 1)
+                return latents
+
+            def sample(self, generator=None):
+                return self._trim(self.posterior.sample(generator=generator))
+
+            def mode(self):
+                return self._trim(self.posterior.mean)
+
+        def _compat_vae_encode(pixels, return_dict=True):
+            del return_dict
+            pixels = pixels.to(dtype=next(vae.parameters()).dtype)
+            model = vae.model
+            if model.use_3d_conv and pixels.ndim == 4:
+                pixels = pixels.unsqueeze(2)
+            process_image = pixels.ndim == 4 or pixels.shape[2] == 1
+            if process_image or not model.use_3d_conv:
+                moments = model._adaptive_encode(pixels)
+            else:
+                moments = model.encode_temporal(pixels)
+            # Do not call encode_base: it samples using the global RNG before
+            # Diffusers supplies its independently seeded keyframe generator.
+            return (_CompatPosterior(moments, process_image and model.use_3d_conv),)
         vae.encode = _compat_vae_encode
         profiler.wrap(vae, "encode", "input.video_vae_encode")
         original_vae_decode = vae.decode
@@ -791,6 +811,8 @@ def main() -> None:
                 decoded = decoded[0]
             if not torch.is_tensor(decoded):
                 raise TypeError(f"legacy VAE decode returned {type(decoded).__name__}, expected Tensor")
+            if not bool(torch.isfinite(decoded).all()):
+                raise FloatingPointError("MiniMax-H3 VAE produced non-finite video pixels")
             print(f"[compat] Temporal VAE decoded frames: {decoded.shape[2]}")
             return decoded
         pipe.vae.decode = decode_legacy_video

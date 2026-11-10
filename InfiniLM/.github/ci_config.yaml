@@ -253,17 +253,17 @@ platforms:
   #   docker_args:
   #     - "--runtime=runc"
   #     - "--privileged"
-  #     - "--device=/dev/davinci0"
-  #     - "--device=/dev/davinci_manager"
-  #     - "--device=/dev/devmm_svm"
-  #     - "--device=/dev/hisi_hdc"
+  #     - "--device=${ASCEND_DEVICE_0}"
+  #     - "--device=${ASCEND_DEVICE_MANAGER}"
+  #     - "--device=${ASCEND_DEVICE_MEMORY_MANAGER}"
+  #     - "--device=${ASCEND_DEVICE_HDC}"
   #   volumes:
-  #     - /usr/local/Ascend/driver:/usr/local/Ascend/driver:ro
-  #     - /usr/local/dcmi:/usr/local/dcmi:ro
-  #     - /usr/local/bin/npu-smi:/usr/local/bin/npu-smi:ro
-  #     - /data-aisoft/artifacts/CI_ascend_test/__WORKSPACE__:/artifacts
+  #     - "${ASCEND_DRIVER_ROOT}:${ASCEND_DRIVER_MOUNT}:ro"
+  #     - "${DCMI_ROOT}:${DCMI_MOUNT}:ro"
+  #     - "${NPU_SMI_PATH}:${NPU_SMI_MOUNT}:ro"
+  #     - "${CI_ARTIFACT_WORKSPACE}:${ARTIFACT_MOUNT}"
   #   env:
-  #     ASCEND_HOME_PATH: /usr/local/Ascend/ascend-toolkit/latest
+  #     ASCEND_HOME_PATH: ${ASCEND_HOME_PATH}
   #   setup: pip install .[dev] --no-build-isolation
   #   jobs:
   #     npu:
@@ -276,7 +276,7 @@ platforms:
   #         timeout: 3600
   #       stages:
   #         - name: test
-  #           run: pytest tests/ -n 1 --devices ascend -v --tb=short --junitxml=/workspace/results/test-results.xml
+  #           run: mkdir -p results && pytest tests/ -n 1 --devices ascend -v --tb=short --junitxml=results/test-results.xml
 
   hygon:
     image:
@@ -293,19 +293,19 @@ platforms:
       - "--cap-add=ALL"
       - "--pid=host"
       - "--ipc=host"
-      - "--workdir=/workspace"
-      - "--device=/dev/kfd"
-      - "--device=/dev/mkfd"
-      - "--device=/dev/dri"
+      - "--workdir=${CI_WORKDIR}"
+      - "--device=${HYGON_KFD_DEVICE}"
+      - "--device=${HYGON_MKFD_DEVICE}"
+      - "--device=${HYGON_DRI_DEVICE}"
       - "--security-opt"
       - "seccomp=unconfined"
       - "--group-add=video"
       - "--group-add=render"
     volumes:
-      - /data:/data
-      - /data-aisoft:/data-aisoft
-      - /data-aisoft/artifacts/CI_hygon_test/__WORKSPACE__:/artifacts
-      - /opt/hyhal:/opt/hyhal
+      - "${DATA_ROOT}:${DATA_ROOT}"
+      - "${CI_SHARED_ROOT}:${CI_SHARED_ROOT}"
+      - "${CI_ARTIFACT_WORKSPACE}:${ARTIFACT_MOUNT}"
+      - "${HYHAL_ROOT}:${HYHAL_ROOT}"
     setup: pip install .[dev] --no-build-isolation
     jobs:
       gpu_inferencetest:

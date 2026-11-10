@@ -4,6 +4,7 @@
 
 #include <ATen/ATen.h>
 #include <c10/util/Optional.h>
+#include <cstdlib>
 #include <dlfcn.h>
 #include <optional>
 #include <stdexcept>
@@ -73,11 +74,14 @@ void *resolve_flash_symbol(const char *name) {
 void *resolve_flash_extension_symbol(const char *name) {
     static std::string last_error;
     static void *handle = [&]() -> void * {
+        const char *env_path = std::getenv("FLASH_ATTN_2_CUDA_SO");
         const char *candidates[] = {
-            "flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so",
-            "/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so",
+            env_path,
         };
         for (const char *candidate : candidates) {
+            if (candidate == nullptr || candidate[0] == '\0') {
+                continue;
+            }
             dlerror();
             if (void *h = dlopen(candidate, RTLD_NOW | RTLD_GLOBAL)) {
                 return h;

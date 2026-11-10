@@ -1,5 +1,8 @@
 
-local NEUWARE_HOME = os.getenv("NEUWARE_HOME") or "/usr/local/neuware"
+local NEUWARE_HOME = os.getenv("NEUWARE_HOME")
+if not NEUWARE_HOME or NEUWARE_HOME == "" then
+    raise("NEUWARE_HOME must point to the installed Cambricon toolkit")
+end
 local FLASH_ATTN_ROOT = get_config("flash-attn")
 local INFINI_ROOT = os.getenv("INFINI_ROOT")
     or (os.getenv("HOME") .. "/.infini")

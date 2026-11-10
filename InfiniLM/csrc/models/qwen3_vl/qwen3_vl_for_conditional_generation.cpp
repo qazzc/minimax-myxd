@@ -1,4 +1,5 @@
 #include "qwen3_vl_for_conditional_generation.hpp"
+#include <infinicore/context/context.hpp>
 
 #include "../../global_state/global_state.hpp"
 #include "../models_registry.hpp"
@@ -150,6 +151,9 @@ Qwen3VLModel::forward(const infinilm::InfinilmModel::Input &input) const {
             throw std::runtime_error(
                 "Qwen3VLModel: visual placeholder count does not match visual output");
         }
+        // The pooled source is local to this iteration; its asynchronous
+        // copies into inputs_embeds must finish before its storage is freed.
+        infinicore::context::syncStream();
     }
 
     return language_model_->forward_embeds(

@@ -10,13 +10,12 @@ def _first_existing_dir(paths: list[str]) -> str:
 
 def _metax_toolkit_root(use_mc: bool) -> str:
     """Return toolkit root for MetaX builds (MACA when use-mc; otherwise HPCC)."""
-    if use_mc:
-        for key in ("MACA_PATH", "MACA_HOME", "MACA_ROOT"):
-            v = os.environ.get(key, "").strip()
-            if v:
-                return v
-        return _first_existing_dir(["/opt/maca"])
-    return _first_existing_dir(["/opt/hpcc"])
+    keys = ("MACA_PATH", "MACA_HOME", "MACA_ROOT") if use_mc else ("HPCC_PATH",)
+    for key in keys:
+        value = os.environ.get(key, "").strip()
+        if value and os.path.isdir(value):
+            return value
+    return ""
 
 
 def _prepend_path_var(name: str, prefixes: list[str]) -> None:

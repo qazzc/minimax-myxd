@@ -5,12 +5,14 @@ Tensor Debug 功能测试脚本
 测试 debug 功能在不同设备和数据类型下的正确性
 """
 
-import torch
-import infinicore
-import sys
 import os
-import numpy as np
+import sys
+import tempfile
 import time
+
+import infinicore
+import numpy as np
+import torch
 
 # Framework path
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -26,6 +28,7 @@ from framework import (
     InfiniDeviceNames,
     torch_device_map,
 )
+
 
 # ==============================================================================
 # Test Setup
@@ -47,6 +50,13 @@ _NON_CONTIGUOUS_TEST_CASES = [
 _LARGE_SCALE_TEST_CASES = [
     TestCase("large_scale_binary", (10000000,)),  # 1D: 一千万个元素
 ]
+
+
+def _temporary_binary_path(prefix: str) -> str:
+    descriptor, filename = tempfile.mkstemp(prefix=prefix, suffix=".bin")
+    os.close(descriptor)
+    os.remove(filename)
+    return filename
 
 # Data types - 包含所有需要测试的数据类型
 _TENSOR_DTYPES = [
@@ -127,7 +137,7 @@ def test_binary_save(device, test_case, dtype, config):
     infini_tensor = create_infinicore_tensor(torch_tensor, device_str)
 
     # 保存为二进制文件
-    bin_file = f"/tmp/debug_test_{device}_{dtype}_binary.bin"
+    bin_file = _temporary_binary_path(f"debug-test-{device}-{dtype}-")
     infini_tensor.debug(bin_file)
 
     # 验证文件存在
@@ -183,7 +193,7 @@ def test_multidimensional(device, test_case, dtype, config):
     infini_tensor.debug()
 
     # 测试保存和读取
-    bin_file = f"/tmp/debug_test_multidim_{device}_{dtype}.bin"
+    bin_file = _temporary_binary_path(f"debug-multidim-{device}-{dtype}-")
     infini_tensor.debug(bin_file)
 
     assert os.path.exists(bin_file), "Multidimensional binary file not created"
@@ -256,7 +266,7 @@ def test_non_contiguous_stride(device, test_case, dtype, config):
     print(f"Note: Binary format now SUPPORTS non-contiguous memory layout!")
     print(f"      It automatically detects and handles stride correctly.")
 
-    bin_file = f"/tmp/debug_non_contiguous_{device}_{dtype}.bin"
+    bin_file = _temporary_binary_path(f"debug-non-contiguous-{device}-{dtype}-")
     infini_tensor_t.debug(bin_file)
 
     # 验证二进制文件
@@ -349,7 +359,7 @@ def test_large_scale_binary_performance(device, test_case, dtype, config):
     infini_tensor = create_infinicore_tensor(torch_tensor, device_str)
 
     # 测试保存性能
-    bin_file = f"/tmp/debug_large_scale_{device}_{dtype}.bin"
+    bin_file = _temporary_binary_path(f"debug-large-scale-{device}-{dtype}-")
 
     print(f"\n{'='*70}")
     print(f"[1/2] Writing Binary File")

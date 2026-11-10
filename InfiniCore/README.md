@@ -146,7 +146,7 @@ python scripts/install.py [XMAKE_CONFIG_FLAGS]
      xmake f --nv-gpu=true --cuda=$CUDA_HOME -cv
 
      # QY
-     # 需要指定环境变量QY_ROOT来确认库所在位置，比如说export QY_ROOT=/usr/local/XX
+     # Set QY_ROOT to the installed QY toolkit root.
      xmake f --qy-gpu=true --cuda=$CUDA_HOME -cv
 
      # 寒武纪
@@ -248,7 +248,7 @@ python scripts/install.py [XMAKE_CONFIG_FLAGS]
       --use-vendor-ops=true -cv
 
   # 方式二：指定包含 _C.cpython-*.so 的 vllm_iluvatar 预编译扩展目录。
-  # eg. --flash-attn=/usr/local/lib/python3.12/site-packages/vllm_iluvatar
+  # Set --flash-attn to the active environment's vllm_iluvatar package directory.
   xmake f --iluvatar-gpu=true --cuda=$CUDA_HOME --aten=true \
       --flash-attn=<path-to-fa2> \
       -cv
@@ -271,15 +271,12 @@ python scripts/install.py [XMAKE_CONFIG_FLAGS]
   # 该目录下需要能找到以下两个文件：
   #   1. flash_attn_2_cuda*.so
   #   2. flash_attn/lib/libflash_attention.so
-  # 例如：
-  #   /usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so
-  #   /usr/local/lib/python3.10/dist-packages/flash_attn/lib/libflash_attention.so
-
-  # 若 flash_attn_2_cuda*.so 不在 --flash-attn 指定目录下，可通过 FLASH_ATTN_2_CUDA_SO 显式指定。
-  export FLASH_ATTN_2_CUDA_SO=/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so
+  # Derive the extension and package root from the active Python environment.
+  export FLASH_ATTN_2_CUDA_SO="$(python -c 'import importlib.util; s=importlib.util.find_spec("flash_attn_2_cuda"); print(s.origin if s else "")')"
+  FLASH_ATTN_ROOT="$(python -c 'import importlib.util, pathlib; s=importlib.util.find_spec("flash_attn_2_cuda"); print(pathlib.Path(s.origin).parent if s else "")')"
 
   # xmake 配置环节需要同时打开海光 DCU、ATen 和 flash-attn：
-  xmake f --hygon-dcu=y --aten=y --flash-attn=/usr/local/lib/python3.10/dist-packages -cv
+  xmake f --hygon-dcu=y --aten=y --flash-attn="$FLASH_ATTN_ROOT" -cv
 
   # 编译 Python/C++ 封装：
   xmake build _infinicore
@@ -293,9 +290,10 @@ python scripts/install.py [XMAKE_CONFIG_FLAGS]
   # --flash-attn 指向包含 flash_attn_2_cuda*.so 的 site-packages 目录。
   python -c "import flash_attn_2_cuda; print(flash_attn_2_cuda.__file__)"
 
-  export FLASH_ATTN_2_CUDA_SO=/usr/local/lib/python3.12/site-packages/flash_attn_2_cuda.cpython-312-x86_64-linux-gnu.so
+  export FLASH_ATTN_2_CUDA_SO="$(python -c 'import importlib.util; s=importlib.util.find_spec("flash_attn_2_cuda"); print(s.origin if s else "")')"
+  FLASH_ATTN_ROOT="$(python -c 'import importlib.util, pathlib; s=importlib.util.find_spec("flash_attn_2_cuda"); print(pathlib.Path(s.origin).parent if s else "")')"
   xmake f --ali-ppu=true --ccl=true --graph=true --aten=true \
-      --flash-attn=/usr/local/lib/python3.12/site-packages -cv
+      --flash-attn="$FLASH_ATTN_ROOT" -cv
 
   xmake build
   xmake install

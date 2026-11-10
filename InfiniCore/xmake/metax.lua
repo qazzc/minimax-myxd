@@ -9,10 +9,7 @@ do
     -- on `infinicore_cpp_api` where `os.iorunv` is available in this xmake sandbox.
 end
 
--- Resolve MetaX flash-attn .so path (used only from this file: `before_link` sandbox cannot see globals from `xmake.lua`).
-local FLASH_ATTN_METAX_CUDA_SO_CONTAINER_DEFAULT =
-    "/opt/conda/lib/python3.10/site-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so"
-
+-- Resolve the extension from explicit configuration or the active Python environment.
 local function metax_flash_attn_cuda_so_path()
     -- Highest priority: override the exact `.so` file to link.
     local env_path = os.getenv("FLASH_ATTN_2_CUDA_SO")
@@ -21,24 +18,24 @@ local function metax_flash_attn_cuda_so_path()
         if os.isfile(env_path) then
             return env_path
         end
-        print(string.format("warning: metax+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s, fallback to container/default path", env_path))
+        print(string.format("warning: metax+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s", env_path))
     end
 
-    -- Second priority: allow overriding the "expected" container path via env.
-    local container_path = os.getenv("FLASH_ATTN_METAX_CUDA_SO_CONTAINER")
-    if not container_path or container_path == "" then
-        container_path = FLASH_ATTN_METAX_CUDA_SO_CONTAINER_DEFAULT
+    if FLASH_ATTN_ROOT and FLASH_ATTN_ROOT ~= "" then
+        local candidates = os.files(path.join(FLASH_ATTN_ROOT, "flash_attn_2_cuda*.so"))
+        if #candidates > 0 then
+            return candidates[1]
+        end
     end
 
-    if not os.isfile(container_path) then
-        print(
-            string.format(
-                "warning: metax+flash-attn: expected %s; install flash-attn in conda env, or export FLASH_ATTN_2_CUDA_SO.",
-                container_path
-            )
-        )
+    local detected = os.iorunv("python", {
+        "-c",
+        "import importlib.util; s=importlib.util.find_spec('flash_attn_2_cuda'); print(s.origin if s and s.origin else '')",
+    }):trim()
+    if detected ~= "" and os.isfile(detected) then
+        return detected
     end
-    return container_path
+    raise("metax+flash-attn: extension not found; activate the Python environment or set FLASH_ATTN_2_CUDA_SO")
 end
 
 -- MetaX flash-attn link flags for pip `flash_attn_2_cuda`.

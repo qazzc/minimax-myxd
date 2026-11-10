@@ -1,51 +1,137 @@
+--- a/README.md
++++ b/README.md
+@@ -149 +149 @@
+-     # 需要指定环境变量QY_ROOT来确认库所在位置，比如说export QY_ROOT=/usr/local/XX
++     # Set QY_ROOT to the installed QY toolkit root.
+@@ -251 +251 @@
+-  # eg. --flash-attn=/usr/local/lib/python3.12/site-packages/vllm_iluvatar
++  # Set --flash-attn to the active environment's vllm_iluvatar package directory.
+@@ -274,6 +274,3 @@
+-  # 例如：
+-  #   /usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so
+-  #   /usr/local/lib/python3.10/dist-packages/flash_attn/lib/libflash_attention.so
+-
+-  # 若 flash_attn_2_cuda*.so 不在 --flash-attn 指定目录下，可通过 FLASH_ATTN_2_CUDA_SO 显式指定。
+-  export FLASH_ATTN_2_CUDA_SO=/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so
++  # Derive the extension and package root from the active Python environment.
++  export FLASH_ATTN_2_CUDA_SO="$(python -c 'import importlib.util; s=importlib.util.find_spec("flash_attn_2_cuda"); print(s.origin if s else "")')"
++  FLASH_ATTN_ROOT="$(python -c 'import importlib.util, pathlib; s=importlib.util.find_spec("flash_attn_2_cuda"); print(pathlib.Path(s.origin).parent if s else "")')"
+@@ -282 +279 @@
+-  xmake f --hygon-dcu=y --aten=y --flash-attn=/usr/local/lib/python3.10/dist-packages -cv
++  xmake f --hygon-dcu=y --aten=y --flash-attn="$FLASH_ATTN_ROOT" -cv
+@@ -296 +293,2 @@
+-  export FLASH_ATTN_2_CUDA_SO=/usr/local/lib/python3.12/site-packages/flash_attn_2_cuda.cpython-312-x86_64-linux-gnu.so
++  export FLASH_ATTN_2_CUDA_SO="$(python -c 'import importlib.util; s=importlib.util.find_spec("flash_attn_2_cuda"); print(s.origin if s else "")')"
++  FLASH_ATTN_ROOT="$(python -c 'import importlib.util, pathlib; s=importlib.util.find_spec("flash_attn_2_cuda"); print(pathlib.Path(s.origin).parent if s else "")')"
+@@ -298 +296 @@
+-      --flash-attn=/usr/local/lib/python3.12/site-packages -cv
++      --flash-attn="$FLASH_ATTN_ROOT" -cv
+--- a/python/infinicore/_preload.py
++++ b/python/infinicore/_preload.py
+@@ -4,0 +5 @@
++import shutil
+@@ -5,0 +7,2 @@
++import sysconfig
++from pathlib import Path
+@@ -12 +15 @@
+-    Prefer HPCC_PATH; if absent and explicitly opted-in, fall back to /opt/hpcc.
++    Prefer the explicitly configured HPCC_PATH when one is supplied.
+@@ -141 +144,12 @@
+-    # Common installation locations.
++    # Search interpreter package locations and the user-selected install prefix.
++    for key in ("platlib", "purelib"):
++        package_dir = sysconfig.get_path(key)
++        if package_dir:
++            candidates.extend(
++                glob.glob(os.path.join(package_dir, "flash_attn_2_cuda*.so"))
++            )
++    infini_root = os.getenv("INFINI_ROOT")
++    if infini_root:
++        candidates.extend(
++            glob.glob(os.path.join(infini_root, "lib", "flash_attn_2_cuda*.so"))
++        )
+@@ -143 +157,3 @@
+-        glob.glob("/usr/local/lib/python*/dist-packages/flash_attn_2_cuda*.so")
++        glob.glob(
++            str(Path.home() / ".infini" / "lib" / "flash_attn_2_cuda*.so")
++        )
+@@ -145 +160,0 @@
+-    candidates.extend(glob.glob("/root/.infini/lib/flash_attn_2_cuda*.so"))
+@@ -189,2 +204,9 @@
+-        dtk_root = os.getenv("DTK_ROOT") or "/opt/dtk"
+-        if os.path.isdir(dtk_root):
++        dtk_root = os.getenv("DTK_ROOT") or os.getenv("ROCM_PATH")
++        hip_path = os.getenv("HIP_PATH")
++        if not dtk_root and hip_path:
++            dtk_root = (
++                str(Path(hip_path).parent)
++                if Path(hip_path).name == "hip"
++                else hip_path
++            )
++        if (dtk_root and os.path.isdir(dtk_root)) or shutil.which("rocminfo"):
+@@ -195,2 +217,2 @@
+-        return importlib.util.find_spec("vllm_iluvatar") is not None or os.path.isdir(
+-            "/usr/local/corex"
++        return importlib.util.find_spec("vllm_iluvatar") is not None or bool(
++            os.getenv("ILUVATAR_ROOT")
+--- a/scripts/metax_env.py
++++ b/scripts/metax_env.py
+@@ -13,7 +13,6 @@
+-    if use_mc:
+-        for key in ("MACA_PATH", "MACA_HOME", "MACA_ROOT"):
+-            v = os.environ.get(key, "").strip()
+-            if v:
+-                return v
+-        return _first_existing_dir(["/opt/maca"])
+-    return _first_existing_dir(["/opt/hpcc"])
++    keys = ("MACA_PATH", "MACA_HOME", "MACA_ROOT") if use_mc else ("HPCC_PATH",)
++    for key in keys:
++        value = os.environ.get(key, "").strip()
++        if value and os.path.isdir(value):
++            return value
++    return ""
+--- a/src/infinicore/adaptor/flash_attn/hygon/flash_attn_hygon.cc
++++ b/src/infinicore/adaptor/flash_attn/hygon/flash_attn_hygon.cc
+@@ -6,0 +7 @@
++#include <cstdlib>
+@@ -75,0 +77 @@
++        const char *env_path = std::getenv("FLASH_ATTN_2_CUDA_SO");
+@@ -77,2 +79 @@
+-            "flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so",
+-            "/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so",
++            env_path,
+@@ -80,0 +82,3 @@
++            if (candidate == nullptr || candidate[0] == '\0') {
++                continue;
++            }
+--- a/src/infinicore/adaptor/iluvatar_vendor_adaptor.cc
++++ b/src/infinicore/adaptor/iluvatar_vendor_adaptor.cc
+@@ -127,2 +126,0 @@
+-            "/usr/local/lib/python3.12/site-packages/vllm_iluvatar/_C.cpython-312-x86_64-linux-gnu.so",
+-            "/usr/local/lib/python3.10/site-packages/vllm_iluvatar/_C.cpython-310-x86_64-linux-gnu.so",
+@@ -240 +237,0 @@
+-            "/usr/local/corex-4.5.0.20260619/lib64/python3/dist-packages/ixtriturbo/_C/ops.cpython-312-x86_64-linux-gnu.so",
 --- a/src/infiniop/ninetoothed/build.py
 +++ b/src/infiniop/ninetoothed/build.py
-@@ -2,10 +2,13 @@
- import functools
- import inspect
- import itertools
+@@ -4,0 +5 @@
 +import os
- import pathlib
- 
- import ninetoothed
+@@ -7,0 +9 @@
 +import ninetoothed.aot as ninetoothed_aot
- from ninetoothed.aot import _HEADER_PATH
+@@ -8,0 +11 @@
 +from ninetoothed.utils import calculate_default_configs
- 
- CURRENT_FILE_PATH = pathlib.Path(__file__)
- 
-@@ -15,12 +18,16 @@
- 
- 
- def build(premake, constexpr_param_grid, caller, op_name, output_dir):
+@@ -17,0 +21,3 @@
 +    _install_cpp_aot_compat()
 +    pathlib.Path(output_dir).mkdir(parents=True, exist_ok=True)
 +    BUILD_DIRECTORY_PATH.mkdir(parents=True, exist_ok=True)
-     headers = []
-     all_param_names = []
-     combinations = []
-     launches = []
- 
+@@ -23 +29,2 @@
 -    with concurrent.futures.ProcessPoolExecutor() as executor:
 +    max_workers = max(1, int(os.environ.get("NINETOOTHED_BUILD_JOBS", "2")))
 +    with concurrent.futures.ProcessPoolExecutor(max_workers=max_workers) as executor:
-         futures = []
- 
-         for combination in tuple(
-@@ -61,7 +68,8 @@
-         f"{type} {param}" for param, type in zip(param_names, param_types)
-     )
- 
+@@ -64 +71,2 @@
 -    source_file_name = f"{op_name}.c"
 +    has_hip_kernels = any(pathlib.Path(output_dir).glob(f"{op_name}_*.cpp"))
 +    source_file_name = f"{op_name}.cpp" if has_hip_kernels else f"{op_name}.c"
-     header_file_name = f"{op_name}.h"
- 
-     func_sig = f"NineToothedResult launch_{op_name}({param_decls})"
-@@ -129,3 +137,103 @@
-     value_combinations = itertools.product(*param_grid.values())
- 
-     return tuple(dict(zip(keys, combination)) for combination in value_combinations)
+@@ -131,0 +140,100 @@
 +def _install_cpp_aot_compat():
 +    """Support Triton ROCm releases that emit C++ AOT source files."""
 +    if getattr(ninetoothed, "_infini_cpp_aot_compat", False):
@@ -146,104 +232,164 @@
 +    ninetoothed_aot._enumerate_variant_specs = compact_aot_variants
 +    ninetoothed.make.__globals__["aot"] = aot_with_cpp_output
 +    ninetoothed._infini_cpp_aot_compat = True
+--- a/src/infiniop/ops/swiglu/ninetoothed/build.py
++++ b/src/infiniop/ops/swiglu/ninetoothed/build.py
+@@ -8,0 +9,4 @@
++    import triton
++
++    triton.knobs.language.default_fp_fusion = False
++
+--- a/src/infiniop/ops/swiglu/ninetoothed/swiglu.py
++++ b/src/infiniop/ops/swiglu/ninetoothed/swiglu.py
+@@ -2,0 +3 @@
++import ninetoothed
+@@ -5 +5,0 @@
+-from ntops.kernels.element_wise import arrangement
+@@ -7,0 +8,8 @@
++def arrangement(output, up, gate, block_size):
++    return (
++        output.tile((block_size,)),
++        up.tile((block_size,)),
++        gate.tile((block_size,)),
++    )
++
++
+@@ -9 +17,2 @@
+-    output = ntl.sigmoid(ntl.cast(gate, ntl.float32)) * gate * up  # noqa: F841
++    gate_f32 = ntl.cast(gate, ntl.float32)
++    sigmoid = ntl.cast(ntl.sigmoid(gate_f32), gate.dtype)
+@@ -10,0 +20,7 @@
++    if gate.dtype == ninetoothed.bfloat16:
++        sigmoid = ntl.cast(sigmoid, ntl.float32)
++        output = ntl.cast(
++            (gate_f32 * sigmoid) * ntl.cast(up, ntl.float32), gate.dtype
++        )
++    else:
++        output = (gate * sigmoid) * up
+@@ -11,0 +28 @@
++
+@@ -14 +30,0 @@
+-
 --- a/src/infiniop/ops/swiglu/operator.cc
 +++ b/src/infiniop/ops/swiglu/operator.cc
-@@ -27,6 +27,9 @@
- #ifdef ENABLE_MOORE_API
- #include "moore/swiglu_moore_musa.h"
- #endif
+@@ -29,0 +30,3 @@
 +#if defined(ENABLE_HYGON_NINETOOTHED_SWIGLU)
 +#include "ninetoothed/swiglu.h"
 +#endif
- 
- __INFINI_C infiniStatus_t infiniopCreateSwiGLUDescriptor(
-     infiniopHandle_t handle,
-@@ -75,8 +78,12 @@
-         CREATE_CUDA(INFINI_DEVICE_QY, nvidia);
- #endif
- #ifdef ENABLE_HYGON_API
+@@ -77,0 +81,3 @@
 +#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
 +        CREATE(INFINI_DEVICE_HYGON, ninetoothed);
 +#else
-         CREATE_CUDA(INFINI_DEVICE_HYGON, nvidia);
- #endif
+@@ -79,0 +86 @@
 +#endif
- #ifdef ENABLE_KUNLUN_API
-         CREATE(INFINI_DEVICE_KUNLUN, kunlun);
- #endif
-@@ -139,8 +146,12 @@
-         GET_CUDA(INFINI_DEVICE_QY, nvidia);
- #endif
- #ifdef ENABLE_HYGON_API
+@@ -141,0 +149,3 @@
 +#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
 +        GET(INFINI_DEVICE_HYGON, ninetoothed);
 +#else
-         GET_CUDA(INFINI_DEVICE_HYGON, nvidia);
- #endif
+@@ -143,0 +154 @@
 +#endif
- #ifdef ENABLE_KUNLUN_API
-         GET(INFINI_DEVICE_KUNLUN, kunlun);
- #endif
-@@ -209,8 +220,12 @@
-         CALCULATE_CUDA(INFINI_DEVICE_QY, nvidia);
- #endif
- #ifdef ENABLE_HYGON_API
+@@ -211,0 +223,3 @@
 +#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
 +        CALCULATE(INFINI_DEVICE_HYGON, ninetoothed);
 +#else
-         CALCULATE_CUDA(INFINI_DEVICE_HYGON, nvidia);
- #endif
+@@ -213,0 +228 @@
 +#endif
- #ifdef ENABLE_KUNLUN_API
-         CALCULATE(INFINI_DEVICE_KUNLUN, kunlun);
- #endif
-@@ -274,8 +289,12 @@
-         DELETE_CUDA(INFINI_DEVICE_QY, nvidia);
- #endif
- #ifdef ENABLE_HYGON_API
+@@ -276,0 +292,3 @@
 +#ifdef ENABLE_HYGON_NINETOOTHED_SWIGLU
 +        DELETE(INFINI_DEVICE_HYGON, ninetoothed);
 +#else
-         DELETE_CUDA(INFINI_DEVICE_HYGON, nvidia);
- #endif
+@@ -278,0 +297 @@
 +#endif
- #ifdef ENABLE_KUNLUN_API
-         DELETE(INFINI_DEVICE_KUNLUN, kunlun);
- #endif
---- a/xmake.lua
-+++ b/xmake.lua
-@@ -257,6 +257,12 @@
- if has_config("ninetoothed") then
-     add_defines("ENABLE_NINETOOTHED")
- end
-+option("hygon-ninetoothed-swiglu")
-+    set_default(false)
-+    set_showmenu(true)
-+    set_description("Use NineToothed AOT for Hygon SwiGLU")
-+option_end()
+--- a/src/infiniop/ops/gemm/moore/mudnn/gemm_mudnn.mu
++++ b/src/infiniop/ops/gemm/moore/mudnn/gemm_mudnn.mu
+@@ -49,4 +49,2 @@
+-    // 0. For muDNN development, refer to the official documentation and the following headers:
+-    // - /usr/local/musa/include/mudnn_base.h
+-    // - /usr/local/musa/include/mudnn_math.h
+-    // - /usr/local/musa/include/mudnn.h
++    // 0. For muDNN development, refer to the official documentation and the
++    // headers under the configured MUSA_ROOT include directory.
+--- a/test/infinicore/debug.py
++++ b/test/infinicore/debug.py
+@@ -8,3 +7,0 @@
+-import torch
+-import infinicore
+-import sys
+@@ -12 +9,2 @@
+-import numpy as np
++import sys
++import tempfile
+@@ -14,0 +13,4 @@
++import infinicore
++import numpy as np
++import torch
 +
- 
- -- Flash-Attn
- option("flash-attn")
+@@ -29,0 +32 @@
++
+@@ -49,0 +53,7 @@
++
++
++def _temporary_binary_path(prefix: str) -> str:
++    descriptor, filename = tempfile.mkstemp(prefix=prefix, suffix=".bin")
++    os.close(descriptor)
++    os.remove(filename)
++    return filename
+@@ -130 +140 @@
+-    bin_file = f"/tmp/debug_test_{device}_{dtype}_binary.bin"
++    bin_file = _temporary_binary_path(f"debug-test-{device}-{dtype}-")
+@@ -186 +196 @@
+-    bin_file = f"/tmp/debug_test_multidim_{device}_{dtype}.bin"
++    bin_file = _temporary_binary_path(f"debug-multidim-{device}-{dtype}-")
+@@ -259 +269 @@
+-    bin_file = f"/tmp/debug_non_contiguous_{device}_{dtype}.bin"
++    bin_file = _temporary_binary_path(f"debug-non-contiguous-{device}-{dtype}-")
+@@ -352 +362 @@
+-    bin_file = f"/tmp/debug_large_scale_{device}_{dtype}.bin"
++    bin_file = _temporary_binary_path(f"debug-large-scale-{device}-{dtype}-")
+--- a/xmake/bang.lua
++++ b/xmake/bang.lua
+@@ -2 +2,4 @@
+-local NEUWARE_HOME = os.getenv("NEUWARE_HOME") or "/usr/local/neuware"
++local NEUWARE_HOME = os.getenv("NEUWARE_HOME")
++if not NEUWARE_HOME or NEUWARE_HOME == "" then
++    raise("NEUWARE_HOME must point to the installed Cambricon toolkit")
++end
 --- a/xmake/hygon.lua
 +++ b/xmake/hygon.lua
-@@ -97,6 +97,12 @@
-         return env_arch
-     end
- 
+@@ -1 +1,18 @@
+-local dtk_root = os.getenv("DTK_ROOT") or "/opt/dtk"
++local function resolve_dtk_root()
++    local configured = os.getenv("DTK_ROOT") or os.getenv("ROCM_PATH")
++    if configured and configured ~= "" then
++        return configured
++    end
++    local hip_path = os.getenv("HIP_PATH")
++    if hip_path and hip_path ~= "" then
++        if path.filename(hip_path) == "hip" then
++            return path.directory(hip_path)
++        end
++        return hip_path
++    end
++    local rocminfo = os.iorunv("sh", {"-lc", "command -v rocminfo"}):trim()
++    if rocminfo ~= "" then
++        return path.directory(path.directory(rocminfo))
++    end
++    return ""
++end
+@@ -2,0 +20,5 @@
++local dtk_root = resolve_dtk_root()
++if dtk_root == "" then
++    raise("Set DTK_ROOT, ROCM_PATH, or HIP_PATH to the installed DTK root")
++end
++
+@@ -99,0 +122,6 @@
 +    local rocminfo = os.iorunv("rocminfo", {}):trim()
 +    local detected = rocminfo:match("Name:%s+(gfx[0-9]+)")
 +    if detected and detected ~= "" then
 +        return detected
 +    end
 +
-     return "gfx936"
- end
- 
-@@ -155,8 +161,12 @@
-     remove_files("../src/infiniop/ops/gptq_qyblas_gemm/nvidia/*.cu")
-     remove_files("../src/infiniop/ops/histc/nvidia/*.cu")
-     remove_files("../src/infiniop/ops/quant/per_tensor_quant_int8/nvidia/*.cu")
+@@ -158,2 +186,6 @@
 -    if has_config("ninetoothed") then
 -        add_files("../build/ninetoothed/*.c", "../build/ninetoothed/*.cpp", {cxxflags = {"-Wno-return-type"}})
 +    if has_config("hygon-ninetoothed-swiglu") then
@@ -252,16 +398,132 @@
 +            cxxflags = {"-D__HIP_PLATFORM_AMD__", "-Wno-return-type", "-Wno-error=unused-result", "-Wno-error=unused-variable"}
 +        })
 +        add_links("amdhip64")
-     end
- target_end()
- 
-@@ -222,8 +232,7 @@
- 
-         -- 添加海光DCU特定的编译标志
-         -- 检测实际GPU架构，如果未指定则默认使用gfx906
+@@ -225,2 +257 @@
 -        local hygon_arch = os.getenv("HYGON_ARCH") or "gfx906"
 -        add_cuflags("-arch=" .. hygon_arch)
 +        add_cuflags("-arch=" .. HYGON_ARCH)
- 
-         -- 使用NCCL (NVIDIA Collective Communications Library)
-         add_links("nccl")
+@@ -244 +275 @@
+-        print(string.format("warning: hygon+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s, fallback to container/default path", env_path))
++        print(string.format("warning: hygon+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s", env_path))
+@@ -247,3 +278,5 @@
+-    local container_path = os.getenv("FLASH_ATTN_HYGON_CUDA_SO_CONTAINER")
+-    if not container_path or container_path == "" then
+-        container_path = "/usr/local/lib/python3.10/dist-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so"
++    if FLASH_ATTN_ROOT and FLASH_ATTN_ROOT ~= "" then
++        local candidates = os.files(path.join(FLASH_ATTN_ROOT, "flash_attn_2_cuda*.so"))
++        if #candidates > 0 then
++            return candidates[1]
++        end
+@@ -252,7 +285,6 @@
+-    if not os.isfile(container_path) then
+-        print(
+-            string.format(
+-                "warning: hygon+flash-attn: expected %s; install flash-attn in the active Python env, or export FLASH_ATTN_2_CUDA_SO.",
+-                container_path
+-            )
+-        )
++    local detected = os.iorunv("python", {
++        "-c",
++        "import importlib.util; s=importlib.util.find_spec('flash_attn_2_cuda'); print(s.origin if s and s.origin else '')",
++    }):trim()
++    if detected ~= "" and os.isfile(detected) then
++        return detected
+@@ -260 +292 @@
+-    return container_path
++    raise("hygon+flash-attn: extension not found; activate the Python environment or set FLASH_ATTN_2_CUDA_SO")
+--- a/xmake/metax.lua
++++ b/xmake/metax.lua
+@@ -12,4 +12 @@
+--- Resolve MetaX flash-attn .so path (used only from this file: `before_link` sandbox cannot see globals from `xmake.lua`).
+-local FLASH_ATTN_METAX_CUDA_SO_CONTAINER_DEFAULT =
+-    "/opt/conda/lib/python3.10/site-packages/flash_attn_2_cuda.cpython-310-x86_64-linux-gnu.so"
+-
++-- Resolve the extension from explicit configuration or the active Python environment.
+@@ -24 +21 @@
+-        print(string.format("warning: metax+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s, fallback to container/default path", env_path))
++        print(string.format("warning: metax+flash-attn: FLASH_ATTN_2_CUDA_SO is not a file: %s", env_path))
+@@ -27,4 +24,5 @@
+-    -- Second priority: allow overriding the "expected" container path via env.
+-    local container_path = os.getenv("FLASH_ATTN_METAX_CUDA_SO_CONTAINER")
+-    if not container_path or container_path == "" then
+-        container_path = FLASH_ATTN_METAX_CUDA_SO_CONTAINER_DEFAULT
++    if FLASH_ATTN_ROOT and FLASH_ATTN_ROOT ~= "" then
++        local candidates = os.files(path.join(FLASH_ATTN_ROOT, "flash_attn_2_cuda*.so"))
++        if #candidates > 0 then
++            return candidates[1]
++        end
+@@ -33,7 +31,6 @@
+-    if not os.isfile(container_path) then
+-        print(
+-            string.format(
+-                "warning: metax+flash-attn: expected %s; install flash-attn in conda env, or export FLASH_ATTN_2_CUDA_SO.",
+-                container_path
+-            )
+-        )
++    local detected = os.iorunv("python", {
++        "-c",
++        "import importlib.util; s=importlib.util.find_spec('flash_attn_2_cuda'); print(s.origin if s and s.origin else '')",
++    }):trim()
++    if detected ~= "" and os.isfile(detected) then
++        return detected
+@@ -41 +38 @@
+-    return container_path
++    raise("metax+flash-attn: extension not found; activate the Python environment or set FLASH_ATTN_2_CUDA_SO")
+--- a/xmake.lua
++++ b/xmake.lua
+@@ -259,0 +260,6 @@
++option("hygon-ninetoothed-swiglu")
++    set_default(false)
++    set_showmenu(true)
++    set_description("Use NineToothed AOT for Hygon SwiGLU")
++option_end()
++
+@@ -616 +622,5 @@
+-        add_includedirs(path.join("/usr/local/cuda", "include"))
++        local nvcc = os.iorunv("sh", {"-lc", "command -v nvcc"}):trim()
++        if nvcc == "" then
++            raise("Set CUDA_HOME or CUDA_PATH, configure --cuda, or put nvcc on PATH")
++        end
++        add_includedirs(path.join(path.directory(path.directory(nvcc)), "include"))
+@@ -733 +743,4 @@
+-        local maca_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT") or "/opt/maca"
++        local maca_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT")
++        if not maca_root or maca_root == "" then
++            raise("Set MACA_PATH, MACA_HOME, or MACA_ROOT for MetaX builds")
++        end
+@@ -745 +758,8 @@
+-        local cuda_root = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or get_config("cuda") or "/usr/local/cuda"
++        local cuda_root = os.getenv("CUDA_HOME") or os.getenv("CUDA_PATH") or get_config("cuda")
++        if not cuda_root or cuda_root == "" then
++            local nvcc = os.iorunv("sh", {"-lc", "command -v nvcc"}):trim()
++            if nvcc ~= "" then cuda_root = path.directory(path.directory(nvcc)) end
++        end
++        if not cuda_root or cuda_root == "" then
++            raise("Set CUDA_HOME, CUDA_PATH, or the xmake cuda option for this backend")
++        end
+@@ -749 +769,4 @@
+-        local musa_root = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH") or "/usr/local/musa"
++        local musa_root = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH")
++        if not musa_root or musa_root == "" then
++            raise("Set MUSA_ROOT, MUSA_HOME, or MUSA_PATH for Moore Threads builds")
++        end
+@@ -867,6 +890,5 @@
+-        -- depending on the underlying stack version. When building with MACA (`--use-mc=y`),
+-        -- the version file is typically `/opt/maca/Version.txt` (HPCC uses `/opt/hpcc/Version.txt`).
+-        if has_config("metax-gpu") and get_config("flash-attn") and get_config("flash-attn") ~= "" then
+-            local version_txt = "/opt/hpcc/Version.txt"
+-            if not os.isfile(version_txt) and has_config("use-mc") then
+-                version_txt = "/opt/maca/Version.txt"
++        -- depending on the underlying stack version.
++        if has_config("metax-gpu") and get_config("flash-attn") and get_config("flash-attn") ~= "" then
++            local toolkit_root = os.getenv("HPCC_PATH")
++            if has_config("use-mc") then
++                toolkit_root = os.getenv("MACA_PATH") or os.getenv("MACA_HOME") or os.getenv("MACA_ROOT")
+@@ -873,0 +896 @@
++            local version_txt = toolkit_root and path.join(toolkit_root, "Version.txt") or ""
+@@ -920 +943,4 @@
+-                local MUSA_ROOT = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH") or "/usr/local/musa"
++                local MUSA_ROOT = os.getenv("MUSA_ROOT") or os.getenv("MUSA_HOME") or os.getenv("MUSA_PATH")
++                if not MUSA_ROOT or MUSA_ROOT == "" then
++                    raise("Set MUSA_ROOT, MUSA_HOME, or MUSA_PATH for Moore Threads builds")
++                end
