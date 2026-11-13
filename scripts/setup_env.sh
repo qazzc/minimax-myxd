@@ -39,6 +39,9 @@ if [[ -z "${FLASH_ATTN_2_CUDA_SO:-}" ]]; then
   FLASH_ATTN_2_CUDA_SO="$(python -c 'import importlib.util; s=importlib.util.find_spec("flash_attn_2_cuda"); print(s.origin if s and s.origin else "")' || true)"
 fi
 export FLASH_ATTN_2_CUDA_SO
+if [[ -n "$FLASH_ATTN_2_CUDA_SO" ]]; then
+  export FA_SO_PATH="${FA_SO_PATH:-$FLASH_ATTN_2_CUDA_SO}"
+fi
 library_paths=("$INFINI_ROOT/lib" "$DTK_ROOT/lib" "$DTK_CUDA_ROOT/lib64" "$TORCH_LIB_DIR" "$DTK_ROOT/.hyhal/rocm_smi/lib" "$DTK_ROOT/.hyhal/rocm_smi")
 if [[ -n "$HYHAL_ROOT" ]]; then library_paths+=("$HYHAL_ROOT/lib"); fi
 export LD_LIBRARY_PATH="$(IFS=:; printf '%s' "${library_paths[*]}")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"

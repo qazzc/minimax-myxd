@@ -590,6 +590,26 @@ def load_pipeline(
         print(f"[model] Diffusers execution device: {execution_device}")
         if pipe.vae is None or pipe.audio_vae is None:
             raise RuntimeError("MiniMax-H3 VAE components failed to load; check trust_remote_code and local VAE config")
+        # Expose the released bundle's normalization metadata to Diffusers.
+        from types import SimpleNamespace
+        for component, directory in ((pipe.vae, "video_vae"), (pipe.audio_vae, "audio_vae")):
+            bundle_config = json.loads((paths.partition_dir / directory / "config.json").read_text())
+            for key in ("latents_mean", "latents_std"):
+                if key not in bundle_config:
+                    raise ValueError(f"{directory} config is missing {key}")
+            if directory == "video_vae":
+                bundle_config["clip_length"] = component.model.clip_length
+                component.spatial_compression_ratio = component.model.vae_ratio
+            else:
+                bundle_config["sampling_rate"] = component.model.sample_rate
+                bundle_config["latent_channels"] = len(bundle_config["latents_mean"])
+            component.config = SimpleNamespace(**bundle_config)
+        original_audio_decode = pipe.audio_vae.decode
+        def decode_audio_compat(latents, return_dict=False):
+            latents = latents.to(dtype=next(pipe.audio_vae.parameters()).dtype)
+            decoded = original_audio_decode(latents)
+            return (decoded,) if not return_dict else SimpleNamespace(sample=decoded)
+        pipe.audio_vae.decode = decode_audio_compat
         pipe.vae.to(device=execution_device, dtype=DTYPE)
         pipe.audio_vae.to(device=execution_device, dtype=DTYPE)
         pipe.vae.requires_grad_(False)

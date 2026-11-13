@@ -13,6 +13,16 @@ export NINETOOTHED_BUILD_JOBS="${NINETOOTHED_BUILD_JOBS:-2}"
 export XMAKE_BUILDDIR="${XMAKE_BUILDDIR:-build-$HYGON_ARCH}"
 XMAKE_FEATURE_ARGS=()
 
+# Pass the vendor extension location to xmake; setup_env.sh discovers it.
+if [[ -z "${FLASH_ATTN_ROOT:-}" && -n "${FLASH_ATTN_2_CUDA_SO:-}" ]]; then
+  export FLASH_ATTN_ROOT="$(dirname "$FLASH_ATTN_2_CUDA_SO")"
+fi
+if [[ -z "${FLASH_ATTN_ROOT:-}" ]]; then
+  echo "Install the DTK-compatible FlashAttention wheel or set FLASH_ATTN_ROOT to its site-packages directory" >&2
+  exit 2
+fi
+XMAKE_FEATURE_ARGS+=(--flash-attn="$FLASH_ATTN_ROOT")
+
 case "$HYGON_ARCH" in gfx906|gfx936|gfx938) ;; *) echo "Unsupported HYGON_ARCH=$HYGON_ARCH" >&2; exit 2;; esac
 cd "$ROOT/InfiniCore"
 xmake global --network=private || true

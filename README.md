@@ -4,6 +4,8 @@ This repository contains the source changes and reproducible scripts for the Min
 
 ## Reproduce from a clean checkout
 
+2026-11-13 复现补充：请先阅读[环境要求、模型接口适配及已知问题](docs/reproduction-2026-11-13.md)。该记录区分媒体规格通过与模型正确性，列出本次实际验证的依赖和未解决的花屏、退出崩溃。
+
 > This project targets the competition's Hygon DCU environment. A normal CPU-only machine cannot build or run the formal inference path. The tested environment is gfx936, 8 cards, DTK 26.04, Python 3.11, and the vendor-provided PyTorch 2.9 runtime. gfx906/gfx938 source support is recorded, but this exact end-to-end test has only been completed on gfx936.
 
 ```bash
