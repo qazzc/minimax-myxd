@@ -33,6 +33,10 @@ export HYHAL_ROOT
 export XMAKE_ROOT=y
 export PYTHONPATH="$SUBMISSION_ROOT/InfiniLM/python:$SUBMISSION_ROOT/InfiniCore/python:$SUBMISSION_ROOT/ninetoothed/vendor/src${PYTHONPATH:+:$PYTHONPATH}"
 export INFINI_ROOT="${INFINI_ROOT:-$HOME/.infini/$HYGON_ARCH}"
+# Prevent hashed Torch libnl and system RDMA libnl from loading as two DSOs.
+# Discover the wheel without importing torch; this must precede runtime loading.
+export HYGON_LIBNL_COMPAT_DIR
+HYGON_LIBNL_COMPAT_DIR="$(python "$SUBMISSION_ROOT/scripts/prepare_hygon_libnl.py" --cache-dir "$INFINI_ROOT/.compat/libnl")"
 export PATH="$HOME/.local/bin:$DTK_CUDA_ROOT/bin:$PATH"
 TORCH_LIB_DIR="${TORCH_LIB_DIR:-$(python -c 'import pathlib, torch; print(pathlib.Path(torch.__file__).parent / "lib")')}"
 if [[ -z "${FLASH_ATTN_2_CUDA_SO:-}" ]]; then
@@ -42,6 +46,8 @@ export FLASH_ATTN_2_CUDA_SO
 if [[ -n "$FLASH_ATTN_2_CUDA_SO" ]]; then
   export FA_SO_PATH="${FA_SO_PATH:-$FLASH_ATTN_2_CUDA_SO}"
 fi
-library_paths=("$INFINI_ROOT/lib" "$DTK_ROOT/lib" "$DTK_CUDA_ROOT/lib64" "$TORCH_LIB_DIR" "$DTK_ROOT/.hyhal/rocm_smi/lib" "$DTK_ROOT/.hyhal/rocm_smi")
+library_paths=()
+if [[ -n "$HYGON_LIBNL_COMPAT_DIR" ]]; then library_paths+=("$HYGON_LIBNL_COMPAT_DIR"); fi
+library_paths+=("$INFINI_ROOT/lib" "$DTK_ROOT/lib" "$DTK_CUDA_ROOT/lib64" "$TORCH_LIB_DIR" "$DTK_ROOT/.hyhal/rocm_smi/lib" "$DTK_ROOT/.hyhal/rocm_smi")
 if [[ -n "$HYHAL_ROOT" ]]; then library_paths+=("$HYHAL_ROOT/lib"); fi
 export LD_LIBRARY_PATH="$(IFS=:; printf '%s' "${library_paths[*]}")${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
